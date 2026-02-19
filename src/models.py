@@ -262,6 +262,21 @@ class CrossCollectionResult(BaseModel):
         return grouped
 
 
+class ComparativeResult(BaseModel):
+    """Results from a comparative analysis query."""
+    query: str
+    entity_a: str
+    entity_b: str
+    evidence_a: CrossCollectionResult
+    evidence_b: CrossCollectionResult
+    comparison_context: str = ""
+    total_search_time_ms: float = 0.0
+
+    @property
+    def total_hits(self) -> int:
+        return self.evidence_a.hit_count + self.evidence_b.hit_count
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # AGENT MODELS
 # ═══════════════════════════════════════════════════════════════════════

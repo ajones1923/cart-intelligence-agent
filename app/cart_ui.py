@@ -188,6 +188,23 @@ st.markdown("""
     .evidence-card a:hover {
         text-decoration: underline;
     }
+
+    .entity-header {
+        font-size: 1rem;
+        font-weight: 700;
+        padding: 8px 12px;
+        margin: 12px 0 6px 0;
+        border-radius: 6px;
+    }
+    .entity-header-a { background: #1D6FA4; color: white; }
+    .entity-header-b { background: #952FC6; color: white; }
+    .vs-divider {
+        text-align: center;
+        color: #76B900;
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin: 8px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -268,6 +285,41 @@ with st.sidebar:
             st.session_state["demo_query"] = q
 
 # ═══════════════════════════════════════════════════════════════════════
+# EVIDENCE CARD HELPER
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def render_evidence_cards(evidence):
+    """Render evidence cards for a CrossCollectionResult."""
+    by_coll = evidence.hits_by_collection()
+    for coll_name, hits in by_coll.items():
+        badge_class = f"badge-{coll_name.lower()}"
+        for hit in hits[:5]:
+            source_link = ""
+            if hit.collection == "Literature" and hit.id.isdigit():
+                source_link = (
+                    f' <a href="https://pubmed.ncbi.nlm.nih.gov/{hit.id}/"'
+                    f' target="_blank">PubMed</a>'
+                )
+            elif hit.collection == "Trial" and hit.id.upper().startswith("NCT"):
+                source_link = (
+                    f' <a href="https://clinicaltrials.gov/study/{hit.id}"'
+                    f' target="_blank">ClinicalTrials.gov</a>'
+                )
+            snippet = hit.text[:200].replace("<", "&lt;").replace(">", "&gt;")
+            st.markdown(
+                f'<div class="evidence-card">'
+                f'<span class="collection-badge {badge_class}">{hit.collection}</span>'
+                f' <strong>{hit.id}</strong>'
+                f' <span class="score">{hit.score:.3f}</span>'
+                f'{source_link}'
+                f'<div class="snippet">{snippet}...</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # CHAT INTERFACE
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -296,78 +348,106 @@ if prompt:
     # Generate response via RAG engine
     with st.chat_message("assistant"):
         if engine and engine.llm:
-            # Build query kwargs from sidebar filters
             query_kwargs = {}
             if target_filter != "All Targets":
                 query_kwargs["target_antigen"] = target_filter
 
-            # Show evidence retrieval status
+            # Detect comparative query
+            is_comparative = engine._is_comparative(prompt)
+            evidence = None
+            comp_result = None
+
             with st.status("Searching across CAR-T data sources...", expanded=True) as status:
                 try:
-                    from src.models import AgentQuery
+                    if is_comparative:
+                        comp_result = engine.retrieve_comparative(prompt)
+                        if comp_result:
+                            st.write(
+                                f"Comparative analysis: **{comp_result.entity_a}** "
+                                f"vs **{comp_result.entity_b}**"
+                            )
+                            st.write(
+                                f"Found {comp_result.total_hits} results "
+                                f"({comp_result.total_search_time_ms:.0f}ms)"
+                            )
+                            st.write(f"  - **{comp_result.entity_a}**: {comp_result.evidence_a.hit_count} hits")
+                            st.write(f"  - **{comp_result.entity_b}**: {comp_result.evidence_b.hit_count} hits")
+                        else:
+                            is_comparative = False  # Parsing failed, fall back
 
-                    agent_query = AgentQuery(question=prompt, **query_kwargs)
-                    evidence = engine.retrieve(agent_query)
-
-                    st.write(f"Found {evidence.hit_count} results across {evidence.total_collections_searched} collections ({evidence.search_time_ms:.0f}ms)")
-
-                    by_coll = evidence.hits_by_collection()
-                    for coll_name, hits in by_coll.items():
-                        st.write(f"  - **{coll_name}**: {len(hits)} hits")
+                    if not is_comparative:
+                        from src.models import AgentQuery
+                        agent_query = AgentQuery(question=prompt, **query_kwargs)
+                        evidence = engine.retrieve(agent_query)
+                        st.write(
+                            f"Found {evidence.hit_count} results across "
+                            f"{evidence.total_collections_searched} collections "
+                            f"({evidence.search_time_ms:.0f}ms)"
+                        )
+                        by_coll = evidence.hits_by_collection()
+                        for coll_name, hits in by_coll.items():
+                            st.write(f"  - **{coll_name}**: {len(hits)} hits")
 
                     status.update(label="Generating response...", state="running")
                 except Exception as e:
                     st.error(f"Search error: {e}")
                     evidence = None
+                    comp_result = None
 
             # ── Evidence Panel ──────────────────────────────────────
-            if evidence and evidence.hit_count > 0:
+            if is_comparative and comp_result and comp_result.total_hits > 0:
+                with st.expander(
+                    f"Comparative Evidence ({comp_result.total_hits} results, "
+                    f"{comp_result.total_search_time_ms:.0f}ms)",
+                    expanded=False,
+                ):
+                    st.markdown(
+                        f'<div class="entity-header entity-header-a">'
+                        f'{comp_result.entity_a}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    render_evidence_cards(comp_result.evidence_a)
+
+                    st.markdown(
+                        '<div class="vs-divider">— VS —</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    st.markdown(
+                        f'<div class="entity-header entity-header-b">'
+                        f'{comp_result.entity_b}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    render_evidence_cards(comp_result.evidence_b)
+
+            elif evidence and evidence.hit_count > 0:
                 with st.expander(
                     f"Evidence Sources ({evidence.hit_count} results, "
                     f"{evidence.search_time_ms:.0f}ms)",
                     expanded=False,
                 ):
-                    by_coll = evidence.hits_by_collection()
-                    for coll_name, hits in by_coll.items():
-                        badge_class = f"badge-{coll_name.lower()}"
-                        for hit in hits[:5]:
-                            # Build source link
-                            source_link = ""
-                            if hit.collection == "Literature" and hit.id.isdigit():
-                                source_link = (
-                                    f' <a href="https://pubmed.ncbi.nlm.nih.gov/{hit.id}/"'
-                                    f' target="_blank">PubMed</a>'
-                                )
-                            elif hit.collection == "Trial" and hit.id.upper().startswith("NCT"):
-                                source_link = (
-                                    f' <a href="https://clinicaltrials.gov/study/{hit.id}"'
-                                    f' target="_blank">ClinicalTrials.gov</a>'
-                                )
-
-                            snippet = hit.text[:200].replace("<", "&lt;").replace(">", "&gt;")
-                            st.markdown(
-                                f'<div class="evidence-card">'
-                                f'<span class="collection-badge {badge_class}">{hit.collection}</span>'
-                                f' <strong>{hit.id}</strong>'
-                                f' <span class="score">{hit.score:.3f}</span>'
-                                f'{source_link}'
-                                f'<div class="snippet">{snippet}...</div>'
-                                f'</div>',
-                                unsafe_allow_html=True,
-                            )
+                    render_evidence_cards(evidence)
 
             # ── LLM Response ────────────────────────────────────────
-            if evidence:
-                prompt_text = engine._build_prompt(prompt, evidence)
-                from src.rag_engine import CART_SYSTEM_PROMPT
+            from src.rag_engine import CART_SYSTEM_PROMPT
 
+            if is_comparative and comp_result:
+                prompt_text = engine._build_comparative_prompt(prompt, comp_result)
+                max_tokens = 3000
+            elif evidence:
+                prompt_text = engine._build_prompt(prompt, evidence)
+                max_tokens = 2048
+            else:
+                prompt_text = None
+
+            if prompt_text:
                 response_text = ""
                 message_placeholder = st.empty()
                 try:
                     for token in engine.llm.generate_stream(
                         prompt=prompt_text,
                         system_prompt=CART_SYSTEM_PROMPT,
-                        max_tokens=2048,
+                        max_tokens=max_tokens,
                         temperature=0.7,
                     ):
                         response_text += token
@@ -397,7 +477,7 @@ if prompt:
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; color: #666; font-size: 0.8rem;'>"
-    "HCLS AI Factory — CAR-T Intelligence Agent v1.1.0 "
+    "HCLS AI Factory — CAR-T Intelligence Agent v1.2.0 "
     "| Apache 2.0 | Adam Jones | February 2026"
     "</div>",
     unsafe_allow_html=True,

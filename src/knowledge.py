@@ -927,3 +927,104 @@ def get_knowledge_stats() -> Dict[str, int]:
         "toxicity_profiles": len(CART_TOXICITIES),
         "manufacturing_processes": len(CART_MANUFACTURING),
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# COMPARATIVE ANALYSIS — Entity Resolution
+# ═══════════════════════════════════════════════════════════════════════
+
+ENTITY_ALIASES: Dict[str, Dict[str, str]] = {
+    # FDA-approved products → canonical name + target antigen
+    "KYMRIAH": {"type": "product", "canonical": "Kymriah (tisagenlecleucel)", "target": "CD19"},
+    "TISAGENLECLEUCEL": {"type": "product", "canonical": "Kymriah (tisagenlecleucel)", "target": "CD19"},
+    "YESCARTA": {"type": "product", "canonical": "Yescarta (axicabtagene ciloleucel)", "target": "CD19"},
+    "AXICABTAGENE": {"type": "product", "canonical": "Yescarta (axicabtagene ciloleucel)", "target": "CD19"},
+    "TECARTUS": {"type": "product", "canonical": "Tecartus (brexucabtagene autoleucel)", "target": "CD19"},
+    "BREXUCABTAGENE": {"type": "product", "canonical": "Tecartus (brexucabtagene autoleucel)", "target": "CD19"},
+    "BREYANZI": {"type": "product", "canonical": "Breyanzi (lisocabtagene maraleucel)", "target": "CD19"},
+    "LISOCABTAGENE": {"type": "product", "canonical": "Breyanzi (lisocabtagene maraleucel)", "target": "CD19"},
+    "ABECMA": {"type": "product", "canonical": "Abecma (idecabtagene vicleucel)", "target": "BCMA"},
+    "IDECABTAGENE": {"type": "product", "canonical": "Abecma (idecabtagene vicleucel)", "target": "BCMA"},
+    "CARVYKTI": {"type": "product", "canonical": "Carvykti (ciltacabtagene autoleucel)", "target": "BCMA"},
+    "CILTACABTAGENE": {"type": "product", "canonical": "Carvykti (ciltacabtagene autoleucel)", "target": "BCMA"},
+    # Costimulatory domains
+    "4-1BB": {"type": "costimulatory", "canonical": "4-1BB (CD137)"},
+    "CD137": {"type": "costimulatory", "canonical": "4-1BB (CD137)"},
+    "CD28": {"type": "costimulatory", "canonical": "CD28"},
+    "OX40": {"type": "costimulatory", "canonical": "OX40 (CD134)"},
+    "ICOS": {"type": "costimulatory", "canonical": "ICOS"},
+    # Vector types
+    "LENTIVIRAL": {"type": "manufacturing", "canonical": "lentiviral_transduction"},
+    "RETROVIRAL": {"type": "manufacturing", "canonical": "retroviral_transduction"},
+}
+
+
+def resolve_comparison_entity(text: str) -> Optional[Dict[str, str]]:
+    """Resolve a raw text string to a known CAR-T entity for comparison.
+
+    Checks target antigens, product aliases, toxicities, and manufacturing
+    processes in priority order.
+
+    Returns:
+        Dict with 'type', 'canonical', and optionally 'target' keys,
+        or None if the entity is not recognized.
+    """
+    cleaned = text.strip().upper()
+
+    # 1. Target antigens (exact match)
+    for key in CART_TARGETS:
+        if key.upper() == cleaned:
+            return {"type": "target", "canonical": key, "target": key}
+
+    # 2. Product / alias table
+    if cleaned in ENTITY_ALIASES:
+        return dict(ENTITY_ALIASES[cleaned])
+
+    # 3. Toxicities
+    for key in CART_TOXICITIES:
+        if key.upper() == cleaned or key.upper().replace("_", " ") == cleaned:
+            return {"type": "toxicity", "canonical": key}
+
+    # 4. Manufacturing processes (fuzzy substring)
+    for key in CART_MANUFACTURING:
+        if cleaned.replace(" ", "_").lower() in key.lower() or key.lower().startswith(cleaned.lower()):
+            return {"type": "manufacturing", "canonical": key}
+
+    return None
+
+
+def get_comparison_context(entity_a: Dict[str, str], entity_b: Dict[str, str]) -> str:
+    """Build side-by-side knowledge graph context for two entities.
+
+    Reuses existing get_target_context / get_toxicity_context /
+    get_manufacturing_context depending on entity type.
+
+    Returns:
+        Formatted comparison context string with both entities' data.
+    """
+    def _get_entity_context(entity: Dict[str, str]) -> str:
+        etype = entity["type"]
+        canonical = entity["canonical"]
+        if etype == "target":
+            return get_target_context(canonical)
+        elif etype == "product":
+            target = entity.get("target", "")
+            return get_target_context(target) if target else ""
+        elif etype == "toxicity":
+            return get_toxicity_context(canonical)
+        elif etype == "manufacturing":
+            return get_manufacturing_context(canonical)
+        elif etype == "costimulatory":
+            return f"Costimulatory Domain: {canonical}"
+        return ""
+
+    sections = []
+    ctx_a = _get_entity_context(entity_a)
+    ctx_b = _get_entity_context(entity_b)
+
+    if ctx_a:
+        sections.append(f"### {entity_a['canonical']}\n{ctx_a}")
+    if ctx_b:
+        sections.append(f"### {entity_b['canonical']}\n{ctx_b}")
+
+    return "\n\n---\n\n".join(sections)

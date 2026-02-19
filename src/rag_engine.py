@@ -391,3 +391,168 @@ class CARTRAGEngine:
             f"Cite sources using the clickable markdown links provided in each evidence item. "
             f"Consider cross-functional insights across all stages of CAR-T development."
         )
+
+    # ── Comparative Analysis Methods ────────────────────────────────
+
+    def _is_comparative(self, question: str) -> bool:
+        """Check if a question is a comparative query."""
+        q_upper = question.upper()
+        return ("COMPARE" in q_upper or " VS " in q_upper
+                or "VERSUS" in q_upper or "COMPARING" in q_upper)
+
+    def _parse_comparison_entities(self, question: str):
+        """Parse a comparative query to extract the two entities being compared.
+
+        Handles: "Compare X vs Y", "X versus Y", "Compare X and Y",
+        "X vs Y for indication Z"
+
+        Returns:
+            Tuple of (entity_a_dict, entity_b_dict) or (None, None).
+        """
+        import re
+
+        q = question.strip()
+
+        # Pattern 1: "X vs Y" or "X versus Y"
+        # Group 2 is greedy — we strip trailing context words after
+        match = re.search(
+            r'(.+?)\s+(?:vs\.?|versus)\s+(.+)$',
+            q, re.IGNORECASE,
+        )
+        if match:
+            raw_a = match.group(1).strip()
+            raw_b = match.group(2).strip()
+            raw_a = re.sub(r'^(?:compare|comparing)\s+', '', raw_a, flags=re.IGNORECASE)
+        else:
+            # Pattern 2: "Compare X and Y"
+            match = re.search(
+                r'(?:compare|comparing)\s+(.+?)\s+(?:and|with)\s+(.+?)(?:\s+(?:for|in)\b.*)?$',
+                q, re.IGNORECASE,
+            )
+            if match:
+                raw_a = match.group(1).strip()
+                raw_b = match.group(2).strip()
+            else:
+                return None, None
+
+        # Clean trailing punctuation
+        raw_a = raw_a.rstrip('?.,;:')
+        raw_b = raw_b.rstrip('?.,;:')
+
+        # Strip common trailing context phrases that aren't part of the entity
+        trailing = [
+            'costimulatory domains', 'costimulatory domain',
+            'domains', 'domain', 'signaling',
+            'resistance mechanisms', 'resistance', 'mechanisms',
+            'for .*', 'in .*', 'differences', 'comparison',
+            'toxicity', 'efficacy', 'outcomes', 'safety',
+        ]
+        for pattern in trailing:
+            raw_a = re.sub(rf'\s+{pattern}$', '', raw_a, flags=re.IGNORECASE)
+            raw_b = re.sub(rf'\s+{pattern}$', '', raw_b, flags=re.IGNORECASE)
+
+        if not self.knowledge:
+            return None, None
+
+        from .knowledge import resolve_comparison_entity
+        entity_a = resolve_comparison_entity(raw_a)
+        entity_b = resolve_comparison_entity(raw_b)
+
+        return entity_a, entity_b
+
+    def retrieve_comparative(self, question: str) -> Optional['CrossCollectionResult']:
+        """Run comparative retrieval with two separate searches.
+
+        Performs two retrieve() calls (one per entity) and builds a
+        ComparativeResult with side-by-side knowledge graph context.
+
+        Returns:
+            ComparativeResult, or None if entities could not be parsed
+            (caller should fall back to normal retrieval).
+        """
+        from .models import ComparativeResult
+
+        entity_a, entity_b = self._parse_comparison_entities(question)
+        if not entity_a or not entity_b:
+            return None
+
+        start = time.time()
+
+        query_a = AgentQuery(
+            question=question,
+            target_antigen=entity_a.get("target"),
+        )
+        query_b = AgentQuery(
+            question=question,
+            target_antigen=entity_b.get("target"),
+        )
+
+        evidence_a = self.retrieve(query_a)
+        evidence_b = self.retrieve(query_b)
+
+        comparison_context = ""
+        if self.knowledge:
+            from .knowledge import get_comparison_context
+            comparison_context = get_comparison_context(entity_a, entity_b)
+
+        elapsed = (time.time() - start) * 1000
+
+        return ComparativeResult(
+            query=question,
+            entity_a=entity_a["canonical"],
+            entity_b=entity_b["canonical"],
+            evidence_a=evidence_a,
+            evidence_b=evidence_b,
+            comparison_context=comparison_context,
+            total_search_time_ms=elapsed,
+        )
+
+    def _build_comparative_prompt(self, question: str, comp) -> str:
+        """Build a structured comparison prompt requesting tables."""
+
+        def _fmt(label: str, evidence) -> str:
+            sections = []
+            by_coll = evidence.hits_by_collection()
+            for coll_name, hits in by_coll.items():
+                lines = [f"#### {coll_name}"]
+                for i, hit in enumerate(hits[:4], 1):
+                    citation = self._format_citation(hit.collection, hit.id)
+                    lines.append(
+                        f"{i}. {citation} "
+                        f"(score={hit.score:.3f}) {hit.text[:400]}"
+                    )
+                sections.append("\n".join(lines))
+            if not sections:
+                return f"### Evidence for {label}\nNo evidence found."
+            return f"### Evidence for {label}\n\n" + "\n\n".join(sections)
+
+        evidence_a_text = _fmt(comp.entity_a, comp.evidence_a)
+        evidence_b_text = _fmt(comp.entity_b, comp.evidence_b)
+
+        knowledge_text = ""
+        if comp.comparison_context:
+            knowledge_text = (
+                f"\n\n### Knowledge Graph Comparison Data\n"
+                f"{comp.comparison_context}"
+            )
+
+        return (
+            f"## Comparative Analysis Evidence\n\n"
+            f"{evidence_a_text}\n\n"
+            f"---\n\n"
+            f"{evidence_b_text}"
+            f"{knowledge_text}\n\n"
+            f"---\n\n"
+            f"## Question\n\n{question}\n\n"
+            f"## Instructions\n\n"
+            f"Provide a structured comparison of **{comp.entity_a}** vs "
+            f"**{comp.entity_b}**. Your response MUST include:\n\n"
+            f"1. A **comparison table** in markdown format with key dimensions "
+            f"as rows and the two entities as columns.\n"
+            f"2. **Advantages** of each entity (bulleted list).\n"
+            f"3. **Limitations** of each entity (bulleted list).\n"
+            f"4. A **clinical context** paragraph explaining when each might "
+            f"be preferred.\n\n"
+            f"Cite sources using the clickable markdown links provided in "
+            f"the evidence above."
+        )
