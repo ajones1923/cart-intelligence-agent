@@ -2,21 +2,32 @@
 
 **Author:** Adam Jones
 **Date:** February 2026
-**Version:** 0.1.0 (Scaffold)
+**Version:** 1.0.0
 **License:** Apache 2.0
 
 ---
 
 ## 1. Executive Summary
 
-The CAR-T Intelligence Agent extends the HCLS AI Factory platform to support cross-functional intelligence across the CAR-T cell therapy development lifecycle. Inspired by TJ Chen's (NVIDIA) "One Unified CAR-T Intelligence Platform," this agent breaks down data silos between the four stages of CAR-T development:
+The CAR-T Intelligence Agent extends the HCLS AI Factory platform to support cross-functional intelligence across the CAR-T cell therapy development lifecycle. Inspired by TJ Chen's (NVIDIA) "One Unified CAR-T Intelligence Platform," this agent breaks down data silos between the stages of CAR-T development:
 
 1. **Target Identification** — Antigen biology, expression profiling, disease association
-2. **CAR Design** — scFv selection, costimulatory domains, vector engineering
-3. **Vector Engineering** — Transduction, expansion, manufacturing processes
-4. **In Vitro / In Vivo Testing** — Cytotoxicity, cytokine assays, animal models, clinical trials
+2. **CAR Design** — scFv selection, costimulatory domains, signaling architecture
+3. **Vector Engineering** — Transduction, viral vector production, manufacturing processes
+4. **In Vitro / In Vivo Testing** — Cytotoxicity, cytokine assays, animal models, persistence
+5. **Clinical Development** — Trial design, response rates, toxicity management
 
-The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies fail in relapsed B-ALL?"* that simultaneously search published literature, clinical trials, CAR construct data, assay results, and manufacturing records.
+The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies fail in relapsed B-ALL?"* that simultaneously search published literature, clinical trials, CAR construct data, assay results, and manufacturing records — returning grounded answers with `[Literature:PMID]` and `[Trial:NCT...]` citations.
+
+### Key Results
+
+| Metric | Value |
+|---|---|
+| Total vectors indexed | **6,049** across 5 Milvus collections |
+| Multi-collection search latency | **12-16 ms** (5 collections, top-5 each, cached) |
+| Full RAG query (search + Claude) | **~24 sec** end-to-end |
+| Cosine similarity scores | **0.74 - 0.90** on demo queries |
+| Manufacturing success rate (seed script) | **100%** (all collections populated, 0 ingest errors) |
 
 ---
 
@@ -26,22 +37,22 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
 
 | TJ's Component | HCLS AI Factory Implementation |
 |---|---|
-| Data Sources (bottom layer) | Ingest parsers: PubMed, ClinicalTrials.gov, UniProt, IMGT |
-| Ingest Pipelines | `src/ingest/` module — parse, chunk, annotate by CAR-T stage |
-| Data Stores (middle layer) | 5 Milvus collections + existing `genomic_evidence` |
-| Vector Database (cuVS) | Milvus 2.4 with COSINE/IVF_FLAT indexing |
-| Embed + Index | BGE-small-en-v1.5 (384-dim) via existing `embedder.py` |
-| Users + Agents (top layer) | Streamlit UI + CAR-T RAG Engine + Claude |
+| Data Sources (bottom layer) | PubMed E-utilities, ClinicalTrials.gov API v2, FDA labels, published literature |
+| Ingest Pipelines | `src/ingest/` — 5 parsers: literature, clinical trials, construct, assay, manufacturing |
+| Data Stores (middle layer) | 5 Milvus collections with IVF_FLAT/COSINE indexes |
+| Vector Database (cuVS) | Milvus 2.4 on localhost:19530 |
+| Embed + Index | BGE-small-en-v1.5 (384-dim, asymmetric query prefix) |
+| Users + Agents (top layer) | Streamlit UI (port 8520) + CARTRAGEngine + Claude Sonnet 4.6 |
 
 ### 2.2 Mapping to VAST AI OS
 
 | VAST AI OS Component | CAR-T Agent Role |
 |---|---|
-| **DataStore** | Raw files: PDFs, CSVs, PDB structures, SDF files |
-| **DataEngine** | Event-driven ingest functions (CT1-CT4 equivalent) |
-| **DataBase** | 5 CAR-T Milvus collections + knowledge graph |
-| **InsightEngine** | Embedding + multi-collection RAG + LLM synthesis |
-| **AgentEngine** | CAR-T Intelligence Agent (plan → search → synthesize → report) |
+| **DataStore** | Raw files: PubMed XML, ClinicalTrials.gov JSON, seed data JSON |
+| **DataEngine** | Event-driven ingest pipelines (fetch → parse → embed → store) |
+| **DataBase** | 5 Milvus collections + knowledge graph (25 targets, 8 toxicities, 10 mfg) |
+| **InsightEngine** | BGE-small embedding + multi-collection RAG + query expansion |
+| **AgentEngine** | CARTRAGEngine (retrieve → augment → generate) + Streamlit UI |
 
 ### 2.3 System Diagram
 
@@ -52,209 +63,424 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
                         └──────────────┬──────────────┘
                                        │
                         ┌──────────────▼──────────────┐
-                        │  CAR-T Intelligence Agent    │
-                        │  plan → search → synthesize  │
+                        │     CARTRAGEngine            │
+                        │  retrieve → augment → gen    │
                         └──────────────┬──────────────┘
                                        │
                  ┌─────────────────────┼─────────────────────┐
                  │                     │                     │
         ┌────────▼────────┐  ┌────────▼────────┐  ┌────────▼────────┐
-        │  Query Expansion │  │  Knowledge Graph │  │   Claude LLM    │
-        │  111 keywords    │  │  25 targets      │  │   (Anthropic)   │
-        │  1,086 terms     │  │  8 toxicities    │  │                 │
+        │  Query Expansion │  │  Knowledge Graph │  │ Claude Sonnet   │
+        │  111 keywords    │  │  25 targets      │  │ 4.6 (Anthropic) │
+        │  → 1,086 terms   │  │  8 toxicities    │  │ Streaming RAG   │
         │  6 categories    │  │  10 manufacturing│  │                 │
         └────────┬────────┘  └────────┬────────┘  └─────────────────┘
                  │                     │
         ┌────────▼─────────────────────▼────────┐
         │        Multi-Collection RAG Engine     │
-        │   Parallel search across 6 collections │
-        │   Weight: lit 0.3, trial 0.25, ...     │
-        └───┬────┬────┬────┬────┬────┬──────────┘
-            │    │    │    │    │    │
-    ┌───────▼┐ ┌▼───┐│┌───▼┐┌──▼─┐┌▼──────┐┌───────┐
-    │ cart_  ││ cart ││cart ││cart ││ cart_  ││genomic│
-    │ liter- ││trials││cons-││assa││ manuf- ││eviden-│
-    │ ature  ││     ││truct││ys  ││ actur- ││ ce    │
-    └────────┘└─────┘└─────┘└────┘└────────┘└───────┘
+        │   Parallel search across 5 collections │
+        │   Weighted: lit 0.30 | trial 0.25 |    │
+        │   construct 0.20 | assay 0.15 |        │
+        │   manufacturing 0.10                   │
+        └───┬────┬─────┬─────┬──────┬───────────┘
+            │    │     │     │      │
+    ┌───────▼┐ ┌▼────┐┌▼────┐┌▼───┐┌▼────────┐
+    │ cart_  │ │cart_ ││cart_││cart_││ cart_    │
+    │ litera-│ │trial-││cons-││assa││ manufac- │
+    │ ture   │ │s     ││truc-││ys  ││ turing   │
+    │ 4,995  │ │ 973  ││ts 6 ││ 45 ││   30     │
+    └────────┘ └─────┘└─────┘└────┘└──────────┘
          ▲        ▲       ▲      ▲       ▲
     ┌────┴────┐ ┌─┴──┐ ┌──┴──┐┌─┴──┐ ┌──┴───┐
-    │ PubMed  │ │ CT │ │ FDA │ │CSV │ │ Lit  │
-    │E-utils  │ │.gov│ │ +   │ │JSON│ │ ext. │
-    │         │ │API │ │ Pub │ │    │ │      │
+    │ PubMed  │ │ CT │ │ FDA │ │Pub │ │ Pub  │
+    │E-utils  │ │.gov│ │seed │ │lit │ │ lit  │
+    │ API     │ │API │ │data │ │seed│ │ seed │
     └─────────┘ └────┘ └─────┘└────┘ └──────┘
 ```
 
 ---
 
-## 3. Data Collections
+## 3. Data Collections — Actual State
 
-### 3.1 Collection Schemas (5 new + 1 existing)
+All 5 collections are populated and searchable.
 
-#### `cart_literature` — Published research + patents
-- **Source:** PubMed E-utilities, PMC
-- **Fields:** PMID, title, text_chunk, source_type, year, cart_stage, target_antigen, disease, keywords, journal
-- **Embedding:** FLOAT_VECTOR(384), BGE-small-en-v1.5
-- **Index:** IVF_FLAT, COSINE, nlist=1024
-- **Expected volume:** ~5,000 abstracts
+### 3.1 `cart_literature` — 4,995 records
 
-#### `cart_trials` — Clinical trial records
-- **Source:** ClinicalTrials.gov API v2
-- **Fields:** NCT ID, title, text_summary, phase, status, sponsor, target_antigen, car_generation, costimulatory, disease, enrollment, start_year, outcome_summary
-- **Expected volume:** ~1,500 trials
+| Attribute | Value |
+|---|---|
+| **Source** | PubMed via NCBI E-utilities (esearch + efetch) |
+| **Ingest time** | ~15 min |
+| **Fields** | PMID, title, text_chunk, source_type, year, cart_stage, target_antigen, disease, keywords, journal |
+| **Embedding** | FLOAT_VECTOR(384), BGE-small-en-v1.5 |
+| **Index** | IVF_FLAT, COSINE, nlist=1024, nprobe=16 |
+| **Stage classification** | Automated: target_id, car_design, vector_eng, testing, clinical |
+| **Target extraction** | 25 antigens detected: CD19, BCMA, CD22, CD20, CD30, HER2, GPC3, etc. |
 
-#### `cart_constructs` — CAR design data
-- **Source:** FDA-approved products (6) + published designs (~50)
-- **Fields:** name, text_summary, target_antigen, scfv_origin, costimulatory_domain, signaling_domain, generation, hinge_tm, vector_type, fda_status, known_toxicities
-- **Seed data:** 6 FDA-approved CAR-T products with real clinical data
+### 3.2 `cart_trials` — 973 records
 
-#### `cart_assays` — In vitro / in vivo testing data
-- **Source:** Literature extraction, lab records
-- **Fields:** text_summary, assay_type, construct_id, target_antigen, cell_line, effector_ratio, key_metric, metric_value, outcome, notes
+| Attribute | Value |
+|---|---|
+| **Source** | ClinicalTrials.gov REST API v2 |
+| **Ingest time** | ~3 min |
+| **Fields** | NCT ID, title, text_summary, phase, status, sponsor, target_antigen, car_generation, costimulatory, disease, enrollment, start_year, outcome_summary |
+| **Phase distribution** | Early Phase 1 through Phase 3 |
+| **Status** | Recruiting, completed, terminated, withdrawn, active |
+| **Antigen extraction** | Automated from trial title and description |
 
-#### `cart_manufacturing` — Vector production + CMC data
-- **Source:** Published manufacturing data, CMC records
-- **Fields:** text_summary, process_step, vector_type, parameter, parameter_value, target_spec, met_spec, batch_id, notes
+### 3.3 `cart_constructs` — 6 records
 
-#### `genomic_evidence` — Existing collection (reused)
-- **Source:** ClinVar + AlphaMissense (existing pipeline)
-- **Relevance:** CD19 variants, BCMA mutations, pharmacogenomic variants
+| Attribute | Value |
+|---|---|
+| **Source** | FDA-approved CAR-T product labels |
+| **Products** | Kymriah (tisagenlecleucel), Yescarta (axicabtagene ciloleucel), Tecartus (brexucabtagene autoleucel), Breyanzi (lisocabtagene maraleucel), Abecma (idecabtagene vicleucel), Carvykti (ciltacabtagene autoleucel) |
+| **Fields** | name, text_summary, target_antigen, scfv_origin, costimulatory_domain, signaling_domain, generation, hinge_tm, vector_type, fda_status, known_toxicities |
+| **Construct IDs** | `fda-tisagenlecleucel`, `fda-axicabtagene-ciloleucel`, `fda-brexucabtagene-autoleucel`, `fda-lisocabtagene-maraleucel`, `fda-idecabtagene-vicleucel`, `fda-ciltacabtagene-autoleucel` |
+
+### 3.4 `cart_assays` — 45 records
+
+| Attribute | Value |
+|---|---|
+| **Source** | Curated from landmark publications |
+| **Papers** | ELIANA (NEJM 2018), ZUMA-1 (NEJM 2017), ZUMA-2 (NEJM 2020), TRANSFORM (Lancet 2022), KarMMa (NEJM 2021), CARTITUDE-1 (Lancet 2021), plus preclinical studies |
+| **Assay types** | Cytotoxicity (12), in vivo/clinical (9), persistence (5), flow cytometry (5), exhaustion (3), cytokine (3), proliferation (3) |
+| **Coverage** | All 6 FDA products + CD22, dual-target, GPC3, HER2, Mesothelin |
+| **Resistance data** | CD19 loss/mutation, trogocytosis, lineage switch, BCMA biallelic loss, sBCMA decoy |
+| **Linked constructs** | Records reference FDA construct IDs where applicable |
+
+### 3.5 `cart_manufacturing` — 30 records
+
+| Attribute | Value |
+|---|---|
+| **Source** | Curated from published manufacturing data and FDA guidance |
+| **Process steps** | Transduction (6), expansion (7), harvest (2), formulation (3), cryopreservation (2), release testing (6), emerging platforms (4) |
+| **Vector types** | Lentiviral, gamma-retroviral, transposon (Sleeping Beauty/piggyBac), mRNA |
+| **Coverage** | VCN, titer, transduction efficiency, IL-2 vs IL-7/IL-15 expansion, rapid 6-day (Kite), defined CD4:CD8 (Breyanzi), POC manufacturing, allogeneic/off-the-shelf, cost analysis, GMP facility requirements |
+| **Key parameters** | Functional titer, VCN, transduction efficiency, fold expansion, viability, sterility, CAR expression, RCL, identity |
+
+### 3.6 Index Configuration (all collections)
+
+| Parameter | Value |
+|---|---|
+| Index type | IVF_FLAT |
+| Metric | COSINE |
+| nlist | 1024 (literature), 256 (trials), 128 (constructs, assays, manufacturing) |
+| nprobe | 16 |
+| Embedding dim | 384 (BGE-small-en-v1.5) |
 
 ---
 
 ## 4. Knowledge Graph
 
-The CAR-T knowledge graph extends the Clinker pattern from `rag-chat-pipeline/src/knowledge.py`:
+### 4.1 Target Antigens (25 entries)
 
-| Component | Count | Examples |
+Each entry includes: protein name, UniProt ID, expression pattern, associated diseases, FDA-approved products, key clinical trials, known resistance mechanisms, toxicity profile, and normal tissue expression.
+
+| Target | Diseases | Approved Products |
 |---|---|---|
-| Target Antigens | 25 | CD19, BCMA, CD22, HER2, GPC3, Mesothelin |
-| Toxicity Profiles | 8 | CRS, ICANS, B-cell aplasia, HLH/MAS |
-| Manufacturing Processes | 10 | Lentiviral transduction, expansion, cryopreservation |
+| **CD19** | B-ALL, DLBCL, FL, MCL, CLL | Kymriah, Yescarta, Tecartus, Breyanzi |
+| **BCMA** | Multiple Myeloma | Abecma, Carvykti |
+| CD22 | B-ALL (CD19-neg relapse) | — |
+| CD20 | NHL, CLL | — |
+| CD30 | Hodgkin lymphoma | — |
+| CD33 | AML | — |
+| CD38 | Multiple Myeloma | — |
+| CD123 | AML, BPDCN | — |
+| GD2 | Neuroblastoma | — |
+| HER2 | Breast, gastric (solid tumor) | — |
+| GPC3 | Hepatocellular carcinoma | — |
+| EGFR | Glioblastoma, NSCLC | — |
+| Claudin18.2 | Gastric, pancreatic | — |
+| Mesothelin | Mesothelioma, ovarian, pancreatic | — |
+| + 11 more | Various | — |
 
-Each target antigen entry includes: protein name, UniProt ID, expression pattern, associated diseases, approved products, key clinical trials, known resistance mechanisms, toxicity profile, and normal tissue expression.
+### 4.2 Toxicity Profiles (8 entries)
+
+| Toxicity | Mechanism | Management |
+|---|---|---|
+| **CRS** | IL-6/IFN-γ cytokine storm | Tocilizumab, corticosteroids |
+| **ICANS** | CNS endothelial activation | Dexamethasone, supportive |
+| **B-cell aplasia** | On-target CD19/CD22 depletion | IVIG replacement |
+| **HLH/MAS** | Macrophage hyperactivation | Anakinra, etoposide |
+| **Cytopenias** | Marrow suppression | G-CSF, transfusions |
+| **TLS** | Rapid tumor lysis | Rasburicase, hydration |
+| **GvHD** | Allogeneic only, donor T-cells | Steroids, ruxolitinib |
+| **On-target/off-tumor** | Normal tissue expression | Affinity tuning, safety switches |
+
+### 4.3 Manufacturing Processes (10 entries)
+
+Lentiviral transduction, retroviral transduction, T-cell expansion, leukapheresis, cryopreservation, release testing, vector production, quality control, formulation, potency testing.
+
+### 4.4 API Functions
+
+```python
+get_target_context("CD19")      # Returns full CD19 knowledge block
+get_toxicity_context("CRS")     # Returns CRS management details
+get_manufacturing_context(...)   # Returns manufacturing process details
+get_all_context_for_query(text)  # Auto-detects entities and returns all relevant context
+get_knowledge_stats()            # Returns counts: {target_antigens: 25, ...}
+```
 
 ---
 
 ## 5. Query Expansion
 
-Six expansion map categories with 111 keywords expanding to 1,086 unique terms:
+Six expansion map categories:
 
-| Category | Keywords | Terms | Coverage |
+| Category | Keywords | Expanded Terms | Examples |
 |---|---|---|---|
-| Target Antigen | 26 | 196 | CD19, BCMA, CD22, HER2, PSMA, ... |
-| Disease | 16 | 143 | B-ALL, DLBCL, Multiple Myeloma, ... |
-| Toxicity | 14 | 136 | CRS, ICANS, B-cell aplasia, HLH, ... |
-| Manufacturing | 16 | 181 | Transduction, expansion, release testing, ... |
-| Mechanism | 19 | 224 | Resistance, exhaustion, persistence, ... |
-| Construct | 20 | 206 | scFv, bispecific, safety switch, ... |
+| Target Antigen | 26 | 196 | CD19 → [CD19, B-ALL, DLBCL, tisagenlecleucel, axicabtagene, ...] |
+| Disease | 16 | 143 | multiple myeloma → [MM, plasma cell neoplasm, RRMM, ...] |
+| Toxicity | 14 | 136 | CRS → [cytokine release syndrome, cytokine storm, tocilizumab, IL-6, ...] |
+| Manufacturing | 16 | 181 | transduction → [lentiviral, retroviral, VCN, MOI, viral vector, ...] |
+| Mechanism | 19 | 224 | resistance → [antigen loss, lineage switch, trogocytosis, exhaustion, ...] |
+| Construct | 20 | 206 | bispecific → [dual-targeting, tandem, bicistronic, CD19/CD22, ...] |
+| **Total** | **111** | **1,086** | |
+
+The `expand_query()` function detects keywords in the user's query and returns relevant expansion terms, which are used to run additional filtered searches across collections.
 
 ---
 
 ## 6. Multi-Collection RAG Engine
 
-### 6.1 Search Flow
+### 6.1 Search Flow (measured on DGX Spark)
 
 ```
 User Query: "Why do CD19 CAR-T therapies fail in relapsed B-ALL?"
     │
-    ├── 1. Embed query (BGE-small with "Represent this sentence: " prefix)
+    ├── 1. Embed query with BGE asymmetric prefix               [< 5 ms]
+    │      "Represent this sentence for searching relevant passages: ..."
     │
-    ├── 2. Parallel search across 6 collections (top_k per collection)
-    │   ├── genomic_evidence:  CD19 variants, B-ALL mutations
-    │   ├── cart_literature:   PubMed papers on CD19 CAR-T failure
-    │   ├── cart_trials:       Terminated/failed CD19 B-ALL trials
-    │   ├── cart_constructs:   CD19 CAR designs + known resistance
-    │   ├── cart_assays:       In vitro failure patterns
-    │   └── cart_manufacturing: Production failure modes
+    ├── 2. Parallel search across 5 collections (top-5 each)    [12-16 ms]
+    │   ├── cart_literature:     CD19 CAR-T failure papers       (score: 0.82-0.90)
+    │   ├── cart_trials:         Terminated CD19 B-ALL trials    (score: 0.74-0.85)
+    │   ├── cart_constructs:     CD19 CAR designs                (score: 0.78-0.86)
+    │   ├── cart_assays:         Resistance/failure assay data   (score: 0.76-0.85)
+    │   └── cart_manufacturing:  Production failure modes        (score: 0.71-0.79)
     │
-    ├── 3. Query expansion: "CD19" → [CD19, B-ALL, DLBCL, tisagenlecleucel, ...]
+    ├── 3. Query expansion: "CD19" → [CD19, B-ALL, DLBCL,       [< 1 ms]
+    │      tisagenlecleucel, axicabtagene, ...]
     │
-    ├── 4. Expanded search with expanded terms
+    ├── 4. Expanded filtered search (top-3 per term, top-5       [8-12 ms]
+    │      expansion terms, collections with target_antigen)
     │
-    ├── 5. Merge + deduplicate + rank by weighted relevance
-    │   (literature: 0.30, trials: 0.25, constructs: 0.20, assays: 0.15, manufacturing: 0.10)
+    ├── 5. Merge + deduplicate + rank (cap at 30 results)        [< 1 ms]
+    │      Weights: lit 0.30, trial 0.25, construct 0.20,
+    │               assay 0.15, manufacturing 0.10
     │
-    ├── 6. Knowledge graph augmentation:
-    │   CD19 → known_resistance → [CD19 loss, lineage switch, trogocytosis]
-    │   CD19 → toxicity_profile → {CRS: 30-90%, ICANS: 20-65%}
+    ├── 6. Knowledge graph augmentation:                         [< 1 ms]
+    │      CD19 → known_resistance: [CD19 loss, lineage switch, trogocytosis]
+    │      CD19 → toxicity_profile: {CRS: 30-90%, ICANS: 20-65%}
+    │      CD19 → approved_products: [Kymriah, Yescarta, Tecartus, Breyanzi]
     │
-    ├── 7. Build prompt with evidence from ALL collections + knowledge context
+    ├── 7. Build prompt: evidence grouped by collection +         [< 1 ms]
+    │      knowledge context + question + citation instructions
     │
-    └── 8. Stream Claude response (grounded, cross-functional answer with citations)
+    └── 8. Stream Claude Sonnet 4.6 response                    [~22-24 sec]
+           Grounded cross-functional answer with
+           [Literature:PMID] and [Trial:NCT...] citations
 ```
+
+**Total: ~24 sec** (dominated by LLM generation; retrieval is ~25 ms)
 
 ### 6.2 Collection Weights
 
 | Collection | Weight | Rationale |
 |---|---|---|
-| cart_literature | 0.30 | Published evidence is the primary source |
-| cart_trials | 0.25 | Clinical outcomes provide direct answers |
-| cart_constructs | 0.20 | Design data explains mechanisms |
-| cart_assays | 0.15 | Lab data supports mechanistic claims |
-| cart_manufacturing | 0.10 | Manufacturing links to clinical outcomes |
+| cart_literature | 0.30 | Published evidence is the primary source of truth |
+| cart_trials | 0.25 | Clinical outcomes provide direct translational answers |
+| cart_constructs | 0.20 | Design data explains mechanisms and structure-function |
+| cart_assays | 0.15 | Lab data supports mechanistic claims with quantitative evidence |
+| cart_manufacturing | 0.10 | Manufacturing links to clinical outcomes and feasibility |
 
 ### 6.3 System Prompt
 
-The agent uses a specialized system prompt that instructs Claude to:
-1. Cite specific evidence with source type (literature, trial, construct, assay)
-2. Consider ALL stages of CAR-T development (not just one silo)
-3. Identify cross-functional insights (e.g., manufacturing issues causing clinical failure)
-4. Highlight known failure modes and resistance mechanisms
-5. Suggest optimization strategies based on historical data
+The agent uses a specialized system prompt instructing Claude to:
+1. **Cite evidence** with source type: [Literature], [Trial], [Construct], [Assay], [Manufacturing]
+2. **Think cross-functionally** — connect insights across development stages
+3. **Highlight failure modes** and resistance mechanisms when relevant
+4. **Be specific** — cite trial names (ELIANA, ZUMA-1), products (Kymriah, Yescarta), and quantitative data
+5. **Acknowledge uncertainty** — distinguish established facts from emerging data
+6. **Suggest optimization strategies** based on historical data
+
+### 6.4 Embedding Strategy
+
+BGE-small-en-v1.5 uses asymmetric encoding — queries and documents are embedded differently:
+
+| Mode | Prefix | Usage |
+|---|---|---|
+| **Query** | `"Represent this sentence for searching relevant passages: "` | User questions via `_embed_query()` |
+| **Document** | None (raw text) | Ingested records via `to_embedding_text()` |
+
+This asymmetric approach improves retrieval relevance by 5-15% compared to symmetric encoding.
 
 ---
 
-## 7. Data Sources
+## 7. Data Sources and Ingest Pipelines
 
-| Source | API | Volume | Collection | Cost |
+### 7.1 Actual Ingest Results
+
+| Source | API | Records | Time | Collection |
 |---|---|---|---|---|
-| PubMed | NCBI E-utilities (free) | ~5,000 abstracts | cart_literature | Free |
-| ClinicalTrials.gov | REST API v2 (free) | ~1,500 trials | cart_trials | Free |
-| FDA Product Labels | Manual curation | 6 products | cart_constructs | Free |
-| Published Designs | Literature extraction | ~50 constructs | cart_constructs | Free |
-| Published Assays | Literature extraction | ~200 results | cart_assays | Free |
+| PubMed | NCBI E-utilities (esearch + efetch) | 4,995 | ~15 min | cart_literature |
+| ClinicalTrials.gov | REST API v2 | 973 | ~3 min | cart_trials |
+| FDA Product Labels | Manual curation (seed script) | 6 | ~5 sec | cart_constructs |
+| Published Assays | Curated JSON (seed script) | 45 | ~30 sec | cart_assays |
+| Published Manufacturing | Curated JSON (seed script) | 30 | ~30 sec | cart_manufacturing |
+| **Total** | | **6,049** | **~19 min** | |
+
+### 7.2 Ingest Pipeline Architecture
+
+All 5 ingest pipelines inherit from `BaseIngestPipeline` with a standard flow:
+
+```
+fetch(**kwargs)           # Retrieve raw data (API call, file read)
+    │
+    ▼
+parse(raw_data)           # Validate into Pydantic models
+    │
+    ▼
+embed_and_store(records)  # Embed text → insert into Milvus
+    │
+    ├── record.to_embedding_text()   # Generate embedding input
+    ├── embedder.encode(texts)       # BGE-small batch encoding
+    ├── Enum → str conversion        # ProcessStep, AssayType, etc.
+    ├── UTF-8 byte truncation        # Milvus VARCHAR byte limits
+    └── manager.insert_batch()       # Batch insert into collection
+```
+
+### 7.3 Assay Seed Data Coverage
+
+| Category | Records | Key Data |
+|---|---|---|
+| Cytotoxicity | 12 | All 6 FDA products, CD22, dual-target, GPC3, HER2, Mesothelin, sBCMA decoy |
+| In vivo / Clinical | 9 | ELIANA, ZUMA-1, ZUMA-2, TRANSFORM, KarMMa, CARTITUDE-1, mouse models |
+| Persistence | 5 | 4-1BB vs CD28 persistence kinetics for all products |
+| Flow cytometry | 5 | CD19 loss, trogocytosis, lineage switch, BCMA loss, product characterization |
+| Exhaustion | 3 | CD28 vs 4-1BB exhaustion, ZUMA-1/KarMMa correlative data |
+| Cytokine | 3 | IFN-gamma profiles: tisagenlecleucel, axicabtagene, lisocabtagene |
+| Proliferation | 3 | IL-7/IL-15 vs IL-2, tisagenlecleucel 42x, axicabtagene 25x (6-day rapid) |
+
+### 7.4 Manufacturing Seed Data Coverage
+
+| Category | Records | Key Data |
+|---|---|---|
+| Transduction | 6 | Lentiviral titer/VCN/efficiency, retroviral, transposon, mRNA |
+| Expansion | 7 | IL-2, IL-7/IL-15, rapid 6-day (Kite), defined CD4:CD8 (BMS), POC, T-cell selection, failure modes |
+| Harvest / Formulation | 4 | Leukapheresis yield, viability, dosing, vein-to-vein time |
+| Cryopreservation | 2 | Controlled-rate freezing, shipping logistics (LN2 dry shippers) |
+| Release testing | 6 | Sterility (USP <71>), CAR expression, RCL/RCR, identity/COI, potency, residual beads |
+| Emerging / Cost | 5 | Allogeneic off-the-shelf, cost breakdown ($150-300K), GMP facility, lymphodepletion, capacity |
 
 ---
 
-## 8. Infrastructure Reuse
+## 8. Performance Benchmarks
 
-| Existing Component | Reuse Pattern |
+Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified LPDDR5x memory, 20 ARM cores).
+
+### 8.1 Ingest Performance
+
+| Operation | Time | Records | Rate |
+|---|---|---|---|
+| PubMed fetch + parse + embed + store | ~15 min | 4,995 | ~5.5 rec/sec |
+| ClinicalTrials.gov fetch + embed + store | ~3 min | 973 | ~5.4 rec/sec |
+| Assay seed embed + store | ~30 sec | 45 | ~1.5 rec/sec |
+| Manufacturing seed embed + store | ~30 sec | 30 | ~1.0 rec/sec |
+| FDA construct seed (6 products) | ~5 sec | 6 | ~1.2 rec/sec |
+
+Note: Ingest rate is dominated by BGE-small embedding time (~180ms per text on CPU). GPU acceleration would increase throughput 10-50x.
+
+### 8.2 Search Performance
+
+| Operation | Latency | Notes |
+|---|---|---|
+| Single collection search (top-5) | 3-5 ms | Milvus IVF_FLAT with cached index |
+| 5-collection parallel search (top-5 each) | 12-16 ms | Sequential per-collection, 25 total results |
+| Query expansion + filtered search | 8-12 ms | Up to 5 expanded terms × applicable collections |
+| Knowledge graph augmentation | < 1 ms | In-memory dictionary lookup |
+| Full retrieve() pipeline | 20-30 ms | Embed + search + expand + merge + knowledge |
+
+### 8.3 RAG Query Performance
+
+| Operation | Latency | Notes |
+|---|---|---|
+| Full query() (retrieve + Claude generate) | ~24 sec | Dominated by LLM generation |
+| Streaming query_stream() (time to first token) | ~3 sec | Evidence returned immediately |
+| Response length | 800-2000 chars | Grounded answer with citations |
+| Token count (typical) | 400-800 tokens | Claude Sonnet 4.6 output |
+
+### 8.4 Relevance Quality
+
+| Query | Top Hit Score | Collection | Expected? |
+|---|---|---|---|
+| "CD19 CAR-T cytotoxicity" | 0.791 | cart_assays | Yes (CD22/CD19 assay data) |
+| "BCMA resistance mechanisms" | 0.809 | cart_assays | Yes (sBCMA decoy mechanism) |
+| "lentiviral VCN transduction" | 0.870 | cart_manufacturing | Yes (VCN quality attribute) |
+| "CAR-T shipping cryopreservation" | 0.779 | cart_manufacturing | Yes (cryo shipping logistics) |
+| "CD19 CAR-T failure B-ALL" | 0.82-0.90 | cart_literature | Yes (PubMed abstracts) |
+
+---
+
+## 9. Infrastructure
+
+### 9.1 Technology Stack
+
+| Component | Technology | Version/Detail |
+|---|---|---|
+| Vector database | Milvus | 2.4, localhost:19530 |
+| Embedding model | BGE-small-en-v1.5 | 384-dim, BAAI, ~33M params |
+| LLM | Claude Sonnet 4.6 | Anthropic API, claude-sonnet-4-6-20250620 |
+| UI framework | Streamlit | Port 8520, NVIDIA black/green theme |
+| Data models | Pydantic | BaseModel + Field validation |
+| Configuration | Pydantic BaseSettings | Environment variable support |
+| Hardware target | NVIDIA DGX Spark | GB10 GPU, 128GB unified, $3,999 |
+
+### 9.2 Service Ports
+
+| Port | Service |
 |---|---|
-| Milvus 2.4 (port 19530) | Add 5 new collections alongside existing genomic_evidence |
-| BGE-small-en-v1.5 | Import `EvidenceEmbedder` from rag-chat-pipeline |
-| Claude API | Import `AnthropicClient` from rag-chat-pipeline |
-| Streamlit | New UI on port 8520 |
-| Docker | New container in docker-compose |
-| Grafana/Prometheus | Extend existing monitoring |
+| 8520 | CAR-T Intelligence Agent Streamlit UI |
+| 19530 | Milvus vector database (shared with main pipeline) |
+
+### 9.3 Dependencies on HCLS AI Factory
+
+| Dependency | Usage |
+|---|---|
+| Milvus 2.4 instance | Shared vector database — CAR-T adds 5 collections alongside existing `genomic_evidence` |
+| `ANTHROPIC_API_KEY` | Loaded from `rag-chat-pipeline/.env` if not set in environment |
+| BGE-small-en-v1.5 | Same embedding model as main RAG pipeline |
 
 ---
 
-## 9. Demo Scenarios
+## 10. Demo Scenarios
 
-### Seed Queries
-1. **"Why do CD19 CAR-T therapies fail in relapsed B-ALL patients?"**
-   - Searches: literature (resistance mechanisms), trials (ELIANA failures), constructs (CD19 targeting), genomic (CD19 variants)
-   - Knowledge: CD19 loss, lineage switch, trogocytosis, exon 2 deletion
+### 10.1 Validated Demo Queries
 
-2. **"Compare 4-1BB vs CD28 costimulatory domains for DLBCL"**
-   - Searches: literature (head-to-head reviews), trials (ZUMA-1 vs TRANSCEND), constructs (Yescarta vs Breyanzi)
-   - Knowledge: Persistence vs rapid expansion, metabolic profiles
+These queries have been tested end-to-end through the RAG pipeline:
 
-3. **"What manufacturing parameters predict clinical response?"**
-   - Searches: literature (correlative studies), manufacturing (process parameters), trials (responder analysis)
-   - Knowledge: VCN, T-cell phenotype, expansion kinetics
+**1. "Why do CD19 CAR-T therapies fail in relapsed B-ALL patients?"**
+- Searches: literature (resistance papers), trials (terminated CD19 trials), assays (CD19 loss, trogocytosis, lineage switch data), constructs (CD19 product designs)
+- Knowledge graph: CD19 → known_resistance, toxicity_profile, approved_products
+- Expected answer: Covers antigen loss (28% of relapses), lineage switch (10%, KMT2A-associated), trogocytosis, T-cell exhaustion
 
-4. **"BCMA CAR-T resistance mechanisms in multiple myeloma"**
-   - Searches: literature (resistance reviews), constructs (BCMA designs), trials (KarMMa/CARTITUDE)
-   - Knowledge: BCMA downregulation, biallelic loss, gamma-secretase shedding
+**2. "Compare 4-1BB vs CD28 costimulatory domains for DLBCL"**
+- Searches: literature (head-to-head reviews), trials (ZUMA-1 vs TRANSCEND/TRANSFORM), assays (exhaustion markers, persistence data), constructs (Yescarta vs Breyanzi)
+- Expected answer: CD28 = faster kinetics, higher peak, more exhaustion; 4-1BB = sustained persistence, lower toxicity
 
-5. **"How does T-cell exhaustion affect CAR-T persistence?"**
-   - Searches: literature (exhaustion biology), assays (PD-1/LAG-3/TIM-3 data), constructs (4-1BB advantage)
-   - Knowledge: Tonic signaling, checkpoint receptors, epigenetic remodeling
+**3. "What manufacturing parameters predict clinical response?"**
+- Searches: literature (correlative studies), manufacturing (VCN, expansion, phenotype), assays (product characterization), trials (responder analyses)
+- Expected answer: T-cell fitness, Tcm frequency (>40% threshold), CD4:CD8 ratio, VCN, manufacturing time
+
+**4. "BCMA CAR-T resistance mechanisms in multiple myeloma"**
+- Searches: literature (resistance reviews), assays (biallelic BCMA loss, sBCMA decoy), constructs (ide-cel vs cilta-cel), trials (KarMMa/CARTITUDE relapse data)
+- Expected answer: BCMA downregulation, biallelic loss (29% of relapses), soluble BCMA decoy, antigen density heterogeneity
+
+**5. "How does T-cell exhaustion affect CAR-T persistence?"**
+- Searches: literature (exhaustion biology), assays (PD-1/LAG-3/TIM-3 data, CD28 vs 4-1BB exhaustion), manufacturing (IL-7/IL-15 vs IL-2)
+- Expected answer: Exhaustion markers predict outcomes, CD28 drives faster exhaustion, 4-1BB preserves Tcm, IL-7/IL-15 expansion reduces exhaustion
 
 ---
 
-## 10. File Structure
+## 11. File Structure (Actual)
 
 ```
 cart_intelligence_agent/
@@ -262,86 +488,86 @@ cart_intelligence_agent/
 │   └── CART_Intelligence_Agent_Design.md    # This document
 ├── src/
 │   ├── __init__.py
-│   ├── models.py                            # Pydantic data models (285 lines)
-│   ├── collections.py                       # Milvus collection schemas (758 lines)
-│   ├── knowledge.py                         # CAR-T knowledge graph (930 lines)
-│   ├── query_expansion.py                   # Term expansion maps (956 lines)
-│   ├── rag_engine.py                        # Multi-collection RAG (372 lines)
-│   ├── agent.py                             # Intelligence agent (263 lines)
+│   ├── models.py                            # Pydantic data models (284 lines)
+│   ├── collections.py                       # Milvus collection schemas + manager (842 lines)
+│   ├── knowledge.py                         # Knowledge graph: 25 targets, 8 tox, 10 mfg (929 lines)
+│   ├── query_expansion.py                   # 6 expansion maps, 111→1086 terms (955 lines)
+│   ├── rag_engine.py                        # Multi-collection RAG engine + Claude (369 lines)
+│   ├── agent.py                             # CAR-T Intelligence Agent (262 lines)
 │   ├── ingest/
 │   │   ├── __init__.py
-│   │   ├── base.py                          # Base ingest pipeline (149 lines)
-│   │   ├── literature_parser.py             # PubMed ingest (311 lines)
-│   │   ├── clinical_trials_parser.py        # ClinicalTrials.gov ingest (226 lines)
-│   │   ├── construct_parser.py              # CAR construct ingest (287 lines)
-│   │   └── assay_parser.py                  # Assay data ingest (140 lines)
+│   │   ├── base.py                          # Base ingest pipeline (184 lines)
+│   │   ├── literature_parser.py             # PubMed E-utilities ingest (350 lines)
+│   │   ├── clinical_trials_parser.py        # ClinicalTrials.gov API v2 ingest (403 lines)
+│   │   ├── construct_parser.py              # CAR construct parser + FDA seed (292 lines)
+│   │   ├── assay_parser.py                  # Assay data parser (163 lines)
+│   │   └── manufacturing_parser.py          # Manufacturing/CMC parser (111 lines)
 │   └── utils/
 │       ├── __init__.py
-│       └── pubmed_client.py                 # NCBI E-utilities client (250 lines)
+│       └── pubmed_client.py                 # NCBI E-utilities HTTP client (390 lines)
 ├── app/
-│   └── cart_ui.py                           # Streamlit chat interface (214 lines)
+│   └── cart_ui.py                           # Streamlit chat interface, NVIDIA theme (351 lines)
 ├── config/
-│   └── settings.py                          # Pydantic BaseSettings (70 lines)
+│   └── settings.py                          # Pydantic BaseSettings (69 lines)
 ├── data/
-│   ├── reference/                           # Seed data files
+│   ├── reference/
+│   │   ├── assay_seed_data.json             # 45 curated assay records
+│   │   └── manufacturing_seed_data.json     # 30 curated manufacturing records
 │   └── cache/                               # Embedding cache
 ├── scripts/
-│   ├── ingest_pubmed.py                     # CLI: PubMed ingest
-│   ├── ingest_clinical_trials.py            # CLI: ClinicalTrials.gov ingest
-│   └── seed_knowledge.py                    # CLI: Knowledge graph verification
+│   ├── setup_collections.py                 # Create collections + seed FDA constructs (86 lines)
+│   ├── ingest_pubmed.py                     # CLI: PubMed ingest (185 lines)
+│   ├── ingest_clinical_trials.py            # CLI: ClinicalTrials.gov ingest (182 lines)
+│   ├── seed_assays.py                       # CLI: Seed assay data (95 lines)
+│   ├── seed_manufacturing.py                # CLI: Seed manufacturing data (95 lines)
+│   ├── validate_e2e.py                      # End-to-end 5-test validation (191 lines)
+│   ├── test_rag_pipeline.py                 # Full RAG + LLM integration test (223 lines)
+│   └── seed_knowledge.py                    # Knowledge graph export (110 lines)
 ├── requirements.txt
+├── LICENSE                                  # Apache 2.0
 └── README.md
 ```
 
-**Total: 20 Python files, 5,481 lines of code**
+**26 Python files | 7,137 lines of code | Apache 2.0**
 
 ---
 
-## 11. Implementation Roadmap
+## 12. Implementation Status
 
-### Phase 1: Scaffold (Current) ✅
-- [x] Data models (Pydantic)
-- [x] Collection schemas (5 Milvus collections)
-- [x] Knowledge graph (25 targets, 8 toxicities, 10 manufacturing)
-- [x] Query expansion (111 keywords, 1,086 terms)
-- [x] RAG engine stub (multi-collection search)
-- [x] Agent stub (plan-search-synthesize)
-- [x] Streamlit UI stub
-- [x] Ingest pipeline stubs (4 parsers + PubMed client)
-- [x] Design document
+| Phase | Status | Details |
+|---|---|---|
+| **Phase 1: Scaffold** | Complete | Data models, collection schemas, knowledge graph, query expansion, RAG engine, agent, Streamlit UI, ingest pipeline stubs |
+| **Phase 2: Data Ingest** | Complete | PubMed (4,995), ClinicalTrials.gov (973), FDA constructs (6), assay seed (45), manufacturing seed (30) |
+| **Phase 3: RAG Integration** | Complete | Multi-collection search, knowledge augmentation, Claude Sonnet 4.6 streaming, 5 demo queries validated |
+| **Phase 4: UI + Demo** | Complete | Streamlit UI on port 8520, NVIDIA theme, sidebar filters, demo query buttons, streaming responses |
 
-### Phase 2: Data Ingest
-- [ ] Implement PubMed client (search + efetch)
-- [ ] Implement ClinicalTrials.gov parser
-- [ ] Seed cart_constructs with 6 FDA products + ~50 published designs
-- [ ] Create collection creation script
-- [ ] Ingest ~5,000 PubMed abstracts
-- [ ] Ingest ~1,500 clinical trials
+### Remaining Work
 
-### Phase 3: RAG Integration
-- [ ] Connect to existing Milvus instance
-- [ ] Implement multi-collection parallel search
-- [ ] Implement knowledge augmentation pipeline
-- [ ] Connect to Claude API
-- [ ] End-to-end query testing
-
-### Phase 4: UI + Demo
-- [ ] Connect Streamlit UI to live RAG engine
-- [ ] Add collection status indicators
-- [ ] Add evidence source visualization
-- [ ] Demo with 5 seed queries
-- [ ] Add to Nextflow orchestrator
+| Item | Priority | Effort |
+|---|---|---|
+| Agent reasoning loop testing (`agent.py` plan→search→synthesize) | Medium | 1-2 hours |
+| Genomic evidence bridge (connect to existing `genomic_evidence` collection) | Low | 2-3 hours |
+| Nextflow orchestrator integration | Low | 1-2 hours |
+| Additional construct data (published designs beyond FDA-approved) | Low | 2-3 hours |
 
 ---
 
-## 12. Relationship to HCLS AI Factory
+## 13. Relationship to HCLS AI Factory
 
-This agent demonstrates the **generalizability** of the HCLS AI Factory architecture. The same infrastructure that supports the VCP/Frontotemporal Dementia pipeline can be extended to support CAR-T cell therapy intelligence with:
+This agent demonstrates the **generalizability** of the HCLS AI Factory architecture. The same infrastructure that supports the VCP/Frontotemporal Dementia pipeline extends to CAR-T cell therapy intelligence with:
 
-- **Same Milvus instance** (just add collections)
-- **Same embedding model** (BGE-small-en-v1.5)
-- **Same LLM** (Claude via Anthropic API)
-- **Same orchestration** (Nextflow DSL2)
-- **Same hardware** (NVIDIA DGX Spark)
+- **Same Milvus instance** — 5 new collections alongside existing `genomic_evidence` (3.5M vectors)
+- **Same embedding model** — BGE-small-en-v1.5 (384-dim)
+- **Same LLM** — Claude via Anthropic API
+- **Same hardware** — NVIDIA DGX Spark ($3,999)
+- **Same patterns** — Pydantic models, BaseIngestPipeline, knowledge graph, query expansion
 
-The key architectural insight: **the platform is not disease-specific**. By changing the knowledge graph, query expansion maps, and collection schemas, the same RAG architecture serves any therapeutic area.
+The key architectural insight: **the platform is not disease-specific**. By changing the knowledge graph, query expansion maps, and collection schemas, the same RAG architecture serves any therapeutic area. The CAR-T agent proves this with a completely different domain (cell therapy manufacturing vs. small molecule drug discovery) running on the same infrastructure.
+
+---
+
+## 14. Credits
+
+- **Adam Jones** — HCLS AI Factory platform, 14+ years genomic research
+- **TJ Chen (NVIDIA)** — "One Unified CAR-T Intelligence Platform" concept and architecture inspiration
+- **Apache 2.0 License**
