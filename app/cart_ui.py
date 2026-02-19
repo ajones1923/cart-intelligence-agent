@@ -13,6 +13,7 @@ Author: Adam Jones
 Date: February 2026
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -21,6 +22,15 @@ import streamlit as st
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+# Load API key from rag-chat-pipeline .env if not already set
+if not os.environ.get("ANTHROPIC_API_KEY"):
+    env_path = Path("/home/adam/projects/hcls-ai-factory/rag-chat-pipeline/.env")
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            if line.startswith("ANTHROPIC_API_KEY="):
+                os.environ["ANTHROPIC_API_KEY"] = line.split("=", 1)[1].strip().strip('"')
+                break
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -69,7 +79,7 @@ def init_engine():
 
                 def generate(self, prompt, system_prompt="", max_tokens=2048, temperature=0.7):
                     msg = self.client.messages.create(
-                        model="claude-sonnet-4-20250514",
+                        model="claude-sonnet-4-6-20250620",
                         max_tokens=max_tokens,
                         temperature=temperature,
                         system=system_prompt,
@@ -79,7 +89,7 @@ def init_engine():
 
                 def generate_stream(self, prompt, system_prompt="", max_tokens=2048, temperature=0.7):
                     with self.client.messages.stream(
-                        model="claude-sonnet-4-20250514",
+                        model="claude-sonnet-4-6-20250620",
                         max_tokens=max_tokens,
                         temperature=temperature,
                         system=system_prompt,
@@ -199,8 +209,6 @@ with st.sidebar:
          "Vector Engineering", "Testing", "Clinical"],
     )
 
-    include_genomic = st.checkbox("Include Genomic Evidence", value=True)
-
     st.markdown("---")
     st.markdown("### Collections")
 
@@ -210,7 +218,6 @@ with st.sidebar:
         "cart_constructs": ("CAR Constructs", 0),
         "cart_assays": ("Assay Data", 0),
         "cart_manufacturing": ("Manufacturing", 0),
-        "genomic_evidence": ("Genomic Variants", 0),
     }
 
     if manager:
@@ -222,7 +229,6 @@ with st.sidebar:
                 "cart_constructs": ("CAR Constructs", stats.get("cart_constructs", 0)),
                 "cart_assays": ("Assay Data", stats.get("cart_assays", 0)),
                 "cart_manufacturing": ("Manufacturing", stats.get("cart_manufacturing", 0)),
-                "genomic_evidence": ("Genomic Variants", stats.get("genomic_evidence", 0)),
             }
         except Exception:
             pass  # Keep default zeros
@@ -276,7 +282,6 @@ if prompt:
             query_kwargs = {}
             if target_filter != "All Targets":
                 query_kwargs["target_antigen"] = target_filter
-            query_kwargs["include_genomic"] = include_genomic
 
             # Show evidence retrieval status
             with st.status("Searching across CAR-T data sources...", expanded=True) as status:

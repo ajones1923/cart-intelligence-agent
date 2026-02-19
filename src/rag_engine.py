@@ -54,12 +54,11 @@ CAR-T development from target to clinical candidate."""
 # ═══════════════════════════════════════════════════════════════════════
 
 COLLECTION_CONFIG = {
-    "cart_literature": {"weight": 0.30, "label": "Literature"},
-    "cart_trials": {"weight": 0.25, "label": "Trial"},
-    "cart_constructs": {"weight": 0.20, "label": "Construct"},
-    "cart_assays": {"weight": 0.15, "label": "Assay"},
-    "cart_manufacturing": {"weight": 0.10, "label": "Manufacturing"},
-    "genomic_evidence": {"weight": 0.00, "label": "Genomic"},  # 0 = optional
+    "cart_literature": {"weight": 0.30, "label": "Literature", "has_target_antigen": True},
+    "cart_trials": {"weight": 0.25, "label": "Trial", "has_target_antigen": True},
+    "cart_constructs": {"weight": 0.20, "label": "Construct", "has_target_antigen": True},
+    "cart_assays": {"weight": 0.15, "label": "Assay", "has_target_antigen": True},
+    "cart_manufacturing": {"weight": 0.10, "label": "Manufacturing", "has_target_antigen": False},
 }
 
 
@@ -115,14 +114,12 @@ class CARTRAGEngine:
 
         # Step 2: Determine which collections to search
         collections_to_search = list(COLLECTION_CONFIG.keys())
-        if not query.include_genomic:
-            collections_to_search.remove("genomic_evidence")
 
-        # Step 3: Build collection-specific filters
+        # Step 3: Build collection-specific filters (only for collections with target_antigen field)
         filter_exprs = {}
         if query.target_antigen:
             for coll in collections_to_search:
-                if coll != "genomic_evidence":
+                if COLLECTION_CONFIG.get(coll, {}).get("has_target_antigen", False):
                     filter_exprs[coll] = (
                         f'target_antigen == "{query.target_antigen}"'
                     )
@@ -266,7 +263,8 @@ class CARTRAGEngine:
         additional_hits = []
         for term in expanded_terms[:5]:  # Limit expansion breadth
             for coll_name in collections:
-                if coll_name == "genomic_evidence":
+                # Only filter by target_antigen on collections that have the field
+                if not COLLECTION_CONFIG.get(coll_name, {}).get("has_target_antigen", False):
                     continue
                 try:
                     filter_expr = f'target_antigen == "{term}"'
