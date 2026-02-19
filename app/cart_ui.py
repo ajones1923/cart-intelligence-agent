@@ -33,7 +33,7 @@ if not os.environ.get("ANTHROPIC_API_KEY"):
                 os.environ["ANTHROPIC_API_KEY"] = line.split("=", 1)[1].strip().strip('"')
                 break
 
-from src.export import export_markdown, export_json, generate_filename
+from src.export import export_markdown, export_json, export_pdf, generate_filename
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -337,32 +337,33 @@ for msg_idx, msg in enumerate(st.session_state.messages):
         # Show export buttons on historical assistant messages that have evidence
         if msg["role"] == "assistant" and msg.get("evidence_data"):
             ed = msg["evidence_data"]
-            col1, col2, _spacer = st.columns([1, 1, 4])
+            _export_kwargs = dict(
+                query=ed["query"], response_text=msg["content"],
+                evidence=ed.get("evidence"),
+                comp_result=ed.get("comp_result"),
+                filters_applied=ed.get("filters"),
+            )
+            col1, col2, col3, _spacer = st.columns([1, 1, 1, 3])
             with col1:
-                md_content = export_markdown(
-                    ed["query"], msg["content"],
-                    evidence=ed.get("evidence"),
-                    comp_result=ed.get("comp_result"),
-                    filters_applied=ed.get("filters"),
-                )
                 st.download_button(
-                    "Download Markdown", md_content,
+                    "Download Markdown", export_markdown(**_export_kwargs),
                     file_name=generate_filename("md"),
                     mime="text/markdown",
                     key=f"dl_md_{msg_idx}",
                 )
             with col2:
-                json_content = export_json(
-                    ed["query"], msg["content"],
-                    evidence=ed.get("evidence"),
-                    comp_result=ed.get("comp_result"),
-                    filters_applied=ed.get("filters"),
-                )
                 st.download_button(
-                    "Download JSON", json_content,
+                    "Download JSON", export_json(**_export_kwargs),
                     file_name=generate_filename("json"),
                     mime="application/json",
                     key=f"dl_json_{msg_idx}",
+                )
+            with col3:
+                st.download_button(
+                    "Download PDF", export_pdf(**_export_kwargs),
+                    file_name=generate_filename("pdf"),
+                    mime="application/pdf",
+                    key=f"dl_pdf_{msg_idx}",
                 )
 
 # Chat input
@@ -500,16 +501,16 @@ if prompt:
                     "target_antigen": target_filter,
                     "stage": stage_filter,
                 }
-                col1, col2, _spacer = st.columns([1, 1, 4])
+                _export_kwargs = dict(
+                    query=prompt, response_text=response_text,
+                    evidence=evidence, comp_result=comp_result,
+                    filters_applied=active_filters,
+                )
+                col1, col2, col3, _spacer = st.columns([1, 1, 1, 3])
                 with col1:
                     st.download_button(
                         "Download Markdown",
-                        export_markdown(
-                            prompt, response_text,
-                            evidence=evidence,
-                            comp_result=comp_result,
-                            filters_applied=active_filters,
-                        ),
+                        export_markdown(**_export_kwargs),
                         file_name=generate_filename("md"),
                         mime="text/markdown",
                         key="dl_md_new",
@@ -517,15 +518,18 @@ if prompt:
                 with col2:
                     st.download_button(
                         "Download JSON",
-                        export_json(
-                            prompt, response_text,
-                            evidence=evidence,
-                            comp_result=comp_result,
-                            filters_applied=active_filters,
-                        ),
+                        export_json(**_export_kwargs),
                         file_name=generate_filename("json"),
                         mime="application/json",
                         key="dl_json_new",
+                    )
+                with col3:
+                    st.download_button(
+                        "Download PDF",
+                        export_pdf(**_export_kwargs),
+                        file_name=generate_filename("pdf"),
+                        mime="application/pdf",
+                        key="dl_pdf_new",
                     )
         else:
             # Fallback scaffold mode
