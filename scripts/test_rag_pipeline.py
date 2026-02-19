@@ -58,7 +58,7 @@ class SimpleEmbedder:
 
 class SimpleLLMClient:
     """Wrapper around Anthropic SDK with generate() / generate_stream()."""
-    def __init__(self, model: str = "claude-sonnet-4-6-20250620"):
+    def __init__(self, model: str = "claude-sonnet-4-6"):
         self.client = anthropic.Anthropic()
         self.model = model
 

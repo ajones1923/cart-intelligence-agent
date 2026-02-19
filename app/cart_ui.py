@@ -79,7 +79,7 @@ def init_engine():
 
                 def generate(self, prompt, system_prompt="", max_tokens=2048, temperature=0.7):
                     msg = self.client.messages.create(
-                        model="claude-sonnet-4-6-20250620",
+                        model="claude-sonnet-4-6",
                         max_tokens=max_tokens,
                         temperature=temperature,
                         system=system_prompt,
@@ -89,7 +89,7 @@ def init_engine():
 
                 def generate_stream(self, prompt, system_prompt="", max_tokens=2048, temperature=0.7):
                     with self.client.messages.stream(
-                        model="claude-sonnet-4-6-20250620",
+                        model="claude-sonnet-4-6",
                         max_tokens=max_tokens,
                         temperature=temperature,
                         system=system_prompt,
