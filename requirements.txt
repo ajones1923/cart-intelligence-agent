@@ -1,0 +1,20 @@
+# CAR-T Intelligence Agent — Dependencies
+# Core (shared with rag-chat-pipeline)
+pydantic>=2.0
+pydantic-settings>=2.0
+pymilvus>=2.4.0
+sentence-transformers>=2.2.0
+anthropic>=0.18.0
+numpy>=1.24.0
+
+# Streamlit UI
+streamlit>=1.30.0
+
+# Data ingest
+requests>=2.31.0
+lxml>=5.0.0              # PubMed XML parsing
+biopython>=1.83          # NCBI E-utilities (optional, alternative to raw API)
+
+# Utilities
+tqdm>=4.65.0
+python-dotenv>=1.0.0
