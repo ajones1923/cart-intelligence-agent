@@ -138,7 +138,7 @@ class ClinicalTrial(BaseModel):
     costimulatory: str = Field("", max_length=50, description="CD28, 4-1BB, dual")
     disease: str = Field("", max_length=200)
     enrollment: int = Field(0, ge=0)
-    start_year: int = Field(0, ge=2000, le=2030)
+    start_year: int = Field(0, ge=0, le=2030)
     outcome_summary: str = Field("", max_length=2000)
 
     def to_embedding_text(self) -> str:

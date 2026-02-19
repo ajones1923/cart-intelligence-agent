@@ -239,8 +239,8 @@ class ClinicalTrialsIngestPipeline(BaseIngestPipeline):
                 brief_summary = desc_module.get("briefSummary", "")
                 text_summary = f"{title}. {brief_summary}".strip()
                 # Truncate to model max_length
-                if len(text_summary) > 3000:
-                    text_summary = text_summary[:2997] + "..."
+                if len(text_summary) > 2900:
+                    text_summary = text_summary[:2897] + "..."
 
                 # --- Phase & Status ---
                 phases = design_module.get("phases")

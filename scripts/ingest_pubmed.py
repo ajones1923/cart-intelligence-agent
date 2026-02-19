@@ -15,10 +15,14 @@ Date: February 2026
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from loguru import logger
 
 
 def main():
@@ -39,39 +43,142 @@ def main():
         help="Maximum number of abstracts to fetch",
     )
     parser.add_argument(
-        "--batch-size", type=int, default=100,
+        "--batch-size", type=int, default=64,
         help="Embedding and insert batch size",
     )
     parser.add_argument(
         "--dry-run", action="store_true",
         help="Fetch and parse but don't store in Milvus",
     )
+    parser.add_argument(
+        "--host", default=None,
+        help="Milvus host (default: localhost)",
+    )
+    parser.add_argument(
+        "--port", type=int, default=None,
+        help="Milvus port (default: 19530)",
+    )
     args = parser.parse_args()
 
     print("=" * 65)
     print("  CAR-T Intelligence Agent — PubMed Ingest")
     print("=" * 65)
-    print(f"  Query: {args.query[:60]}...")
+    print(f"  Query: {args.query[:80]}...")
     print(f"  Max results: {args.max_results}")
+    print(f"  Batch size: {args.batch_size}")
     print(f"  Dry run: {args.dry_run}")
     print()
 
-    # TODO: Implement when infrastructure is ready
-    #
-    # from src.utils.pubmed_client import PubMedClient
-    # from src.ingest.literature_parser import PubMedIngestPipeline
-    # from src.collections import CARTCollectionManager
-    #
-    # 1. client = PubMedClient(api_key=settings.NCBI_API_KEY)
-    # 2. pmids = client.search(args.query, max_results=args.max_results)
-    # 3. abstracts = client.fetch_abstracts(pmids)
-    # 4. pipeline = PubMedIngestPipeline(collection_manager, embedder)
-    # 5. records = pipeline.parse(abstracts)
-    # 6. if not args.dry_run: pipeline.embed_and_store(records, "cart_literature")
+    start_time = time.time()
 
-    print("  [SCAFFOLD] PubMed ingest pipeline ready for implementation.")
-    print("  Run with --dry-run to test parsing without Milvus.")
+    # --- Step 1: Initialize PubMed client ---
+    logger.info("Initializing PubMed client...")
+    from src.utils.pubmed_client import PubMedClient
+
+    client = PubMedClient()
+
+    # --- Step 2: Search for PMIDs ---
+    logger.info(f"Searching PubMed for up to {args.max_results} articles...")
+    pmids = client.search(args.query, max_results=args.max_results)
+    logger.info(f"Found {len(pmids)} PMIDs")
+
+    if not pmids:
+        logger.warning("No PMIDs found. Exiting.")
+        return
+
+    # --- Step 3: Fetch abstracts ---
+    logger.info(f"Fetching abstracts for {len(pmids)} PMIDs...")
+    articles = client.fetch_abstracts(pmids)
+    logger.info(f"Fetched {len(articles)} article records")
+
+    if not articles:
+        logger.warning("No articles fetched. Exiting.")
+        return
+
+    # --- Step 4: Parse into CARTLiterature models ---
+    logger.info("Parsing articles into CARTLiterature models...")
+    from src.ingest.literature_parser import PubMedIngestPipeline
+    from src.collections import CARTCollectionManager
+
+    # We need a temporary pipeline just for parsing (no embedder needed yet)
+    # Create a dummy embedder for the pipeline init
+    class DummyEmbedder:
+        def encode(self, texts):
+            return [[0.0] * 384 for _ in texts]
+
+    dummy_manager = None
+    if not args.dry_run:
+        dummy_manager = CARTCollectionManager(host=args.host, port=args.port)
+
+    pipeline = PubMedIngestPipeline(
+        collection_manager=dummy_manager,
+        embedder=DummyEmbedder(),
+        pubmed_client=client,
+    )
+    records = pipeline.parse(articles)
+    logger.info(f"Parsed {len(records)} CARTLiterature records")
+
+    # Show stage distribution
+    from collections import Counter
+    stage_counts = Counter(r.cart_stage.value for r in records)
+    antigen_counts = Counter(r.target_antigen for r in records if r.target_antigen)
+    logger.info(f"Stage distribution: {dict(stage_counts)}")
+    logger.info(f"Top antigens: {dict(antigen_counts.most_common(10))}")
+
+    if args.dry_run:
+        logger.info("Dry run complete. No data stored.")
+        elapsed = time.time() - start_time
+        print(f"\n  Dry run completed in {elapsed:.1f}s")
+        print(f"  {len(records)} records parsed (would be stored)")
+        return
+
+    # --- Step 5: Initialize embedder and Milvus ---
+    logger.info("Loading BGE-small-en-v1.5 embedding model...")
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+
+    class SimpleEmbedder:
+        def __init__(self, st_model):
+            self._model = st_model
+
+        def encode(self, texts):
+            return self._model.encode(texts).tolist()
+
+    embedder = SimpleEmbedder(model)
+
+    # --- Step 6: Connect to Milvus and store ---
+    logger.info("Connecting to Milvus...")
+    manager = CARTCollectionManager(host=args.host, port=args.port)
+    manager.connect()
+
+    # Recreate pipeline with real embedder and manager
+    pipeline = PubMedIngestPipeline(
+        collection_manager=manager,
+        embedder=embedder,
+        pubmed_client=client,
+    )
+
+    logger.info(f"Embedding and storing {len(records)} records (batch_size={args.batch_size})...")
+    count = pipeline.embed_and_store(records, "cart_literature", batch_size=args.batch_size)
+
+    elapsed = time.time() - start_time
+    logger.info(f"Ingest complete: {count} records stored in {elapsed:.1f}s")
+
+    # Show final stats
+    stats = manager.get_collection_stats()
+    logger.info("Final collection stats:")
+    for name, cnt in stats.items():
+        logger.info(f"  {name}: {cnt:,} records")
+
+    manager.disconnect()
+
     print()
+    print("=" * 65)
+    print(f"  PubMed ingest complete!")
+    print(f"  Records stored: {count:,}")
+    print(f"  Time elapsed: {elapsed:.1f}s")
+    print("=" * 65)
 
 
 if __name__ == "__main__":

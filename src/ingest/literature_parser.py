@@ -141,6 +141,20 @@ DEFAULT_QUERY = (
 )
 
 
+def _truncate_utf8(text: str, max_bytes: int) -> str:
+    """Truncate a string to fit within max_bytes when UTF-8 encoded.
+
+    Milvus VARCHAR max_length counts bytes, not characters, so we need
+    byte-aware truncation for text containing multi-byte characters
+    (Greek letters, mathematical symbols, CJK characters, etc.).
+    """
+    encoded = text.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return text
+    # Truncate bytes and decode safely (ignoring partial multi-byte chars)
+    return encoded[:max_bytes].decode("utf-8", errors="ignore")
+
+
 class PubMedIngestPipeline(BaseIngestPipeline):
     """Ingest pipeline for PubMed CAR-T literature.
 
@@ -223,8 +237,9 @@ class PubMedIngestPipeline(BaseIngestPipeline):
                 year = article.get("year", None)
                 mesh_terms = article.get("mesh_terms", [])
 
-                # Combine title + abstract as the text chunk (truncate to 3000 chars)
-                text_chunk = f"{title} {abstract}".strip()[:3000]
+                # Combine title + abstract as the text chunk
+                # Truncate to 2990 UTF-8 bytes (Milvus VARCHAR counts bytes)
+                text_chunk = _truncate_utf8(f"{title} {abstract}".strip(), 2990)
 
                 # Classify the CAR-T development stage
                 cart_stage = self._classify_cart_stage(text_chunk)
@@ -242,15 +257,15 @@ class PubMedIngestPipeline(BaseIngestPipeline):
                 keywords = "; ".join(mesh_terms) if mesh_terms else ""
 
                 record = CARTLiterature(
-                    id=pmid,
-                    title=title,
+                    id=_truncate_utf8(pmid, 95),
+                    title=_truncate_utf8(title, 490),
                     text_chunk=text_chunk,
                     source_type=SourceType.PUBMED,
                     year=year,
                     cart_stage=cart_stage,
-                    target_antigen=target_antigen,
-                    journal=journal,
-                    keywords=keywords,
+                    target_antigen=_truncate_utf8(target_antigen, 95),
+                    journal=_truncate_utf8(journal, 190),
+                    keywords=_truncate_utf8(keywords, 950),
                 )
                 records.append(record)
             except Exception as e:

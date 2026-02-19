@@ -113,27 +113,43 @@ class BaseIngestPipeline(ABC):
         for i in range(0, len(records), batch_size):
             batch = records[i : i + batch_size]
 
-            # Build embedding texts from each record
-            texts = [record.to_embedding_text() for record in batch]
+            try:
+                # Build embedding texts from each record
+                texts = [record.to_embedding_text() for record in batch]
 
-            # Encode texts into embedding vectors (384-dim each)
-            embeddings = self.embedder.encode(texts)
+                # Encode texts into embedding vectors (384-dim each)
+                embeddings = self.embedder.encode(texts)
 
-            # Build dicts for insertion with embedding field added
-            batch_records = []
-            for record, embedding in zip(batch, embeddings):
-                record_dict = record.model_dump()
-                record_dict["embedding"] = embedding
+                # Build dicts for insertion with embedding field added
+                batch_records = []
+                for record, embedding in zip(batch, embeddings):
+                    record_dict = record.model_dump()
+                    record_dict["embedding"] = embedding
 
-                # Convert any Enum values to their string .value
-                for key, value in record_dict.items():
-                    if isinstance(value, Enum):
-                        record_dict[key] = value.value
+                    # Convert any Enum values to their string .value
+                    # and truncate strings to safe UTF-8 byte lengths
+                    for key, value in record_dict.items():
+                        if isinstance(value, Enum):
+                            record_dict[key] = value.value
+                        elif isinstance(value, str):
+                            # Safety: truncate to Milvus VARCHAR byte limit
+                            encoded = value.encode("utf-8")
+                            if len(encoded) > 2990 and key in ("text_chunk", "text_summary"):
+                                record_dict[key] = encoded[:2990].decode("utf-8", errors="ignore")
+                            elif len(encoded) > 490 and key in ("title", "name", "known_toxicities"):
+                                record_dict[key] = encoded[:490].decode("utf-8", errors="ignore")
 
-                batch_records.append(record_dict)
+                    batch_records.append(record_dict)
 
-            self.collection_manager.insert_batch(collection_name, batch_records)
-            total_inserted += len(batch_records)
+                self.collection_manager.insert_batch(collection_name, batch_records)
+                total_inserted += len(batch_records)
+
+            except Exception as exc:
+                logger.error(
+                    f"Failed batch {i // batch_size + 1} "
+                    f"({i}-{i + len(batch)}) into '{collection_name}': {exc}"
+                )
+                continue
 
             logger.info(
                 f"Inserted batch {i // batch_size + 1} "
