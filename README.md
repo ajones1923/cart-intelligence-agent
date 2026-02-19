@@ -11,9 +11,9 @@ The CAR-T Intelligence Agent breaks down data silos across the 5 stages of CAR-T
 | **Literature** | 4,995 | PubMed abstracts via NCBI E-utilities |
 | **Clinical Trials** | 973 | ClinicalTrials.gov API v2 |
 | **CAR Constructs** | 6 | 6 FDA-approved CAR-T products |
-| **Assay Results** | 0 | Ready for data (schema + ingest pipeline built) |
+| **Assay Results** | 45 | Curated from landmark papers (ELIANA, ZUMA-1, KarMMa, CARTITUDE-1, etc.) |
 | **Manufacturing** | 0 | Ready for data (schema + ingest pipeline built) |
-| **Total** | **5,974 vectors** | |
+| **Total** | **6,019 vectors** | |
 
 ### Example Queries
 
@@ -102,7 +102,15 @@ python3 scripts/ingest_clinical_trials.py --max-results 1500
 
 Fetches CAR-T trials via ClinicalTrials.gov API v2, extracts phase/status/sponsor/antigen/generation, embeds, and stores in `cart_trials`.
 
-### 4. Validate
+### 4. Seed Assay Data (~30 sec)
+
+```bash
+python3 scripts/seed_assays.py
+```
+
+Inserts 45 curated assay records from landmark CAR-T publications (ELIANA, ZUMA-1, KarMMa, CARTITUDE-1, etc.) covering cytotoxicity, cytokine, persistence, exhaustion, and resistance data.
+
+### 5. Validate
 
 ```bash
 python3 scripts/validate_e2e.py
@@ -110,7 +118,7 @@ python3 scripts/validate_e2e.py
 
 Runs 5 tests: collection stats, single-collection search, multi-collection `search_all()`, filtered search (`target_antigen == "CD19"`), and all demo queries.
 
-### 5. Run Integration Test (requires API key)
+### 6. Run Integration Test (requires API key)
 
 ```bash
 python3 scripts/test_rag_pipeline.py
@@ -118,7 +126,7 @@ python3 scripts/test_rag_pipeline.py
 
 Tests the full RAG pipeline: embed -> search_all -> knowledge graph -> Claude LLM response generation. Validates both synchronous and streaming modes.
 
-### 6. Launch UI
+### 7. Launch UI
 
 ```bash
 streamlit run app/cart_ui.py --server.port 8520
@@ -149,10 +157,14 @@ cart_intelligence_agent/
 │   └── cart_ui.py                 # Streamlit chat interface (NVIDIA theme)
 ├── config/
 │   └── settings.py                # Pydantic BaseSettings configuration
+├── data/
+│   └── reference/
+│       └── assay_seed_data.json   # 45 curated assay records from landmark papers
 ├── scripts/
 │   ├── setup_collections.py       # Create collections + seed FDA constructs
 │   ├── ingest_pubmed.py           # CLI: ingest PubMed CAR-T literature
 │   ├── ingest_clinical_trials.py  # CLI: ingest ClinicalTrials.gov trials
+│   ├── seed_assays.py             # Seed assay data from published papers
 │   ├── validate_e2e.py            # End-to-end data layer validation
 │   ├── test_rag_pipeline.py       # Full RAG + LLM integration test
 │   └── seed_knowledge.py          # Export knowledge graph to JSON
@@ -181,6 +193,7 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified memory):
 |---|---|
 | PubMed ingest (4,995 abstracts) | ~15 min |
 | ClinicalTrials.gov ingest (973 trials) | ~3 min |
+| Assay seed ingest (45 records) | ~30 sec |
 | Vector search (5 collections, top-5 each) | 12-16 ms (cached) |
 | Full RAG query (search + Claude) | ~24 sec |
 | Cosine similarity scores | 0.74 - 0.90 |
@@ -190,6 +203,7 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified memory):
 - **Week 1 (Scaffold)** -- Complete. Architecture, data models, collection schemas, knowledge graph, ingest pipelines, RAG engine, agent, and Streamlit UI.
 - **Week 2 Days 1-3 (Data)** -- Complete. PubMed (4,995) + ClinicalTrials.gov (973) + FDA constructs (6) ingested. End-to-end validation passing.
 - **Week 2 Days 4-5 (Integration)** -- Complete. Full RAG pipeline with Claude LLM generating grounded cross-functional answers. Streamlit UI working.
+- **Week 2 Day 5+ (Assay Data)** -- Complete. 45 curated assay records from landmark papers seeded into cart_assays. Coverage: cytotoxicity, cytokine, persistence, exhaustion, resistance, in vivo/clinical for all 6 FDA products.
 
 ## Credits
 
