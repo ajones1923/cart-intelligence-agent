@@ -2,7 +2,7 @@
 
 **Author:** Adam Jones
 **Date:** February 2026
-**Version:** 1.0.0
+**Version:** 1.2.0
 **License:** Apache 2.0
 
 ---
@@ -17,7 +17,9 @@ The CAR-T Intelligence Agent extends the HCLS AI Factory platform to support cro
 4. **In Vitro / In Vivo Testing** — Cytotoxicity, cytokine assays, animal models, persistence
 5. **Clinical Development** — Trial design, response rates, toxicity management
 
-The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies fail in relapsed B-ALL?"* that simultaneously search published literature, clinical trials, CAR construct data, assay results, and manufacturing records — returning grounded answers with `[Literature:PMID]` and `[Trial:NCT...]` citations.
+The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies fail in relapsed B-ALL?"* that simultaneously search published literature, clinical trials, CAR construct data, assay results, and manufacturing records — returning grounded answers with clickable [PubMed](https://pubmed.ncbi.nlm.nih.gov/) and [ClinicalTrials.gov](https://clinicaltrials.gov/) citations.
+
+**Comparative Analysis Mode** auto-detects "X vs Y" queries (e.g., *"Compare 4-1BB vs CD28 costimulatory domains"*), runs dual retrievals with per-entity filtering, and produces structured side-by-side analysis with markdown tables.
 
 ### Key Results
 
@@ -25,7 +27,9 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
 |---|---|
 | Total vectors indexed | **6,049** across 5 Milvus collections |
 | Multi-collection search latency | **12-16 ms** (5 collections, top-5 each, cached) |
+| Comparative dual retrieval | **~365 ms** (2 × 5 collections, entity-filtered) |
 | Full RAG query (search + Claude) | **~24 sec** end-to-end |
+| Comparative RAG query (dual search + Claude) | **~30 sec** end-to-end |
 | Cosine similarity scores | **0.74 - 0.90** on demo queries |
 | Manufacturing success rate (seed script) | **100%** (all collections populated, 0 ingest errors) |
 
@@ -60,20 +64,35 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
                         ┌─────────────────────────────┐
                         │   Streamlit Chat UI (8520)   │
                         │   Cross-functional queries   │
+                        │   + Comparative Analysis UI  │
                         └──────────────┬──────────────┘
                                        │
                         ┌──────────────▼──────────────┐
                         │     CARTRAGEngine            │
                         │  retrieve → augment → gen    │
+                        │  + comparative detection     │
                         └──────────────┬──────────────┘
                                        │
-                 ┌─────────────────────┼─────────────────────┐
-                 │                     │                     │
-        ┌────────▼────────┐  ┌────────▼────────┐  ┌────────▼────────┐
-        │  Query Expansion │  │  Knowledge Graph │  │ Claude Sonnet   │
-        │  111 keywords    │  │  25 targets      │  │ 4.6 (Anthropic) │
-        │  → 1,086 terms   │  │  8 toxicities    │  │ Streaming RAG   │
-        │  6 categories    │  │  10 manufacturing│  │                 │
+                  ┌────────────── "X vs Y"? ──────────────┐
+                  │ YES                                NO  │
+                  ▼                                        ▼
+        ┌──────────────────┐                   ┌──────────────────┐
+        │ Comparative Mode │                   │ Standard Mode    │
+        │ Parse 2 entities │                   │ Single retrieve  │
+        │ Entity resolution│                   │                  │
+        │ Dual retrieval   │                   │                  │
+        └────────┬─────────┘                   └────────┬─────────┘
+                 │                                      │
+                 └──────────────────┬───────────────────┘
+                                   │
+                 ┌─────────────────┼─────────────────────┐
+                 │                 │                      │
+        ┌────────▼────────┐  ┌────▼───────────┐  ┌──────▼──────────┐
+        │  Query Expansion │  │ Knowledge Graph │  │ Claude Sonnet   │
+        │  111 keywords    │  │ 25 targets      │  │ 4.6 (Anthropic) │
+        │  → 1,086 terms   │  │ 8 toxicities    │  │ Streaming RAG   │
+        │  6 categories    │  │ 10 manufacturing │  │ + Comparative   │
+        │                  │  │ 18 entity aliases│  │   prompt builder│
         └────────┬────────┘  └────────┬────────┘  └─────────────────┘
                  │                     │
         ┌────────▼─────────────────────▼────────┐
@@ -210,14 +229,28 @@ Each entry includes: protein name, UniProt ID, expression pattern, associated di
 
 Lentiviral transduction, retroviral transduction, T-cell expansion, leukapheresis, cryopreservation, release testing, vector production, quality control, formulation, potency testing.
 
-### 4.4 API Functions
+### 4.4 Entity Aliases (18 entries)
+
+For Comparative Analysis Mode, the knowledge graph includes entity aliases that resolve product names, costimulatory domains, and vector types to canonical entities with associated target antigens.
+
+| Alias Category | Count | Examples |
+|---|---|---|
+| FDA Products | 12 | Kymriah → CD19, Carvykti → BCMA, tisagenlecleucel → CD19, etc. |
+| Costimulatory Domains | 4 | 4-1BB (CD137), CD28, 4-1BB/CD28, OX40 |
+| Vector Types | 2 | Lentiviral, Retroviral |
+
+**Resolution priority:** CART_TARGETS (25) → ENTITY_ALIASES (18) → CART_TOXICITIES (8) → CART_MANUFACTURING (10)
+
+### 4.5 API Functions
 
 ```python
-get_target_context("CD19")      # Returns full CD19 knowledge block
-get_toxicity_context("CRS")     # Returns CRS management details
-get_manufacturing_context(...)   # Returns manufacturing process details
-get_all_context_for_query(text)  # Auto-detects entities and returns all relevant context
-get_knowledge_stats()            # Returns counts: {target_antigens: 25, ...}
+get_target_context("CD19")              # Returns full CD19 knowledge block
+get_toxicity_context("CRS")             # Returns CRS management details
+get_manufacturing_context(...)           # Returns manufacturing process details
+get_all_context_for_query(text)          # Auto-detects entities and returns all relevant context
+get_knowledge_stats()                    # Returns counts: {target_antigens: 25, ...}
+resolve_comparison_entity("Kymriah")     # → {"type": "product", "canonical": "Kymriah (tisagenlecleucel)", "target": "CD19"}
+get_comparison_context(entity_a, entity_b)  # Side-by-side knowledge graph context for dual entities
 ```
 
 ---
@@ -276,8 +309,8 @@ User Query: "Why do CD19 CAR-T therapies fail in relapsed B-ALL?"
     │      knowledge context + question + citation instructions
     │
     └── 8. Stream Claude Sonnet 4.6 response                    [~22-24 sec]
-           Grounded cross-functional answer with
-           [Literature:PMID] and [Trial:NCT...] citations
+           Grounded cross-functional answer with clickable
+           PubMed and ClinicalTrials.gov citation links
 ```
 
 **Total: ~24 sec** (dominated by LLM generation; retrieval is ~25 ms)
@@ -295,7 +328,7 @@ User Query: "Why do CD19 CAR-T therapies fail in relapsed B-ALL?"
 ### 6.3 System Prompt
 
 The agent uses a specialized system prompt instructing Claude to:
-1. **Cite evidence** with source type: [Literature], [Trial], [Construct], [Assay], [Manufacturing]
+1. **Cite evidence with clickable links** — Literature citations link to PubMed (`[Literature:PMID](https://pubmed.ncbi.nlm.nih.gov/PMID/)`), trial citations link to ClinicalTrials.gov (`[Trial:NCT...](https://clinicaltrials.gov/study/NCT...)`)
 2. **Think cross-functionally** — connect insights across development stages
 3. **Highlight failure modes** and resistance mechanisms when relevant
 4. **Be specific** — cite trial names (ELIANA, ZUMA-1), products (Kymriah, Yescarta), and quantitative data
@@ -312,6 +345,95 @@ BGE-small-en-v1.5 uses asymmetric encoding — queries and documents are embedde
 | **Document** | None (raw text) | Ingested records via `to_embedding_text()` |
 
 This asymmetric approach improves retrieval relevance by 5-15% compared to symmetric encoding.
+
+### 6.5 Comparative Analysis Mode
+
+Comparative queries are **auto-detected** and produce structured side-by-side analysis with markdown tables, advantages/limitations, and clinical context.
+
+#### Detection and Parsing
+
+```
+User Query: "Compare 4-1BB vs CD28 costimulatory domains"
+    │
+    ├── 1. _is_comparative() detects COMPARE/VS/VERSUS/COMPARING       [< 1 ms]
+    │
+    ├── 2. _parse_comparison_entities() extracts raw entities            [< 1 ms]
+    │      Pattern 1: "X vs/versus Y" (greedy group 2)
+    │      Pattern 2: "Compare X and/with Y"
+    │      Post-processing: strip trailing context words
+    │        (costimulatory domains, resistance mechanisms, etc.)
+    │
+    ├── 3. resolve_comparison_entity() for each raw entity               [< 1 ms]
+    │      Priority: CART_TARGETS → ENTITY_ALIASES → CART_TOXICITIES → CART_MANUFACTURING
+    │      "4-1BB" → {"type": "costimulatory", "canonical": "4-1BB (CD137)"}
+    │      "CD28"  → {"type": "costimulatory", "canonical": "CD28"}
+    │
+    ├── 4. Dual retrieve() — one per entity                              [~365 ms]
+    │      Entity A: retrieve(question, target_antigen=entity_a.target)
+    │      Entity B: retrieve(question, target_antigen=entity_b.target)
+    │      ~24 results per entity across 5 collections
+    │
+    ├── 5. get_comparison_context() — side-by-side knowledge graph       [< 1 ms]
+    │      Calls get_target_context() / get_toxicity_context() /
+    │      get_manufacturing_context() for each entity
+    │
+    ├── 6. _build_comparative_prompt() — structured prompt               [< 1 ms]
+    │      Evidence grouped by entity (A section, B section)
+    │      Knowledge context appended
+    │      Instructions: comparison table + advantages + limitations
+    │
+    └── 7. Stream Claude Sonnet 4.6 (max_tokens=3000)                   [~28-30 sec]
+           Structured output: table, pros/cons, clinical context
+```
+
+**Total: ~30 sec** (365ms retrieval + ~30 sec LLM generation)
+
+#### Supported Entity Types
+
+| Entity Type | Examples | Resolution |
+|---|---|---|
+| Target Antigens | CD19, BCMA, CD22, CD20 | Direct match in CART_TARGETS (25 entries) |
+| FDA Products | Kymriah, Yescarta, Carvykti, Abecma | ENTITY_ALIASES → canonical name + target |
+| Costimulatory Domains | 4-1BB, CD28 | ENTITY_ALIASES → type: costimulatory |
+| Toxicity Profiles | CRS, ICANS, B-cell aplasia | CART_TOXICITIES → type: toxicity |
+| Manufacturing Processes | Lentiviral, transduction | CART_MANUFACTURING → type: manufacturing |
+
+#### Example Comparative Queries
+
+```
+"Compare CD19 vs BCMA"                              → Target vs target (with target_antigen filtering)
+"Compare 4-1BB vs CD28 costimulatory domains"        → Costimulatory domain comparison
+"Kymriah versus Carvykti"                            → Product vs product (resolves to CD19 vs BCMA)
+"Compare CRS and ICANS toxicity"                     → Toxicity profile comparison
+```
+
+#### Fallback Behavior
+
+If entity parsing fails (unrecognized entities, ambiguous input), the query gracefully falls back to the standard single-query `retrieve()` path with no user-visible error.
+
+#### UI Evidence Panel
+
+Comparative evidence is displayed in an entity-grouped collapsible panel:
+
+- **Entity A header** (blue) — evidence cards for entity A results
+- **"— VS —" divider** (green)
+- **Entity B header** (purple) — evidence cards for entity B results
+
+Each evidence card shows collection badge, ID, cosine score, clickable source link, and text snippet.
+
+### 6.6 Evidence Panel and Clickable Citations
+
+All query responses include a collapsible evidence panel with collection-badged cards:
+
+| Badge Color | Collection | Link Format |
+|---|---|---|
+| Blue | Literature | [PubMed](https://pubmed.ncbi.nlm.nih.gov/PMID/) |
+| Purple | Trial | [ClinicalTrials.gov](https://clinicaltrials.gov/study/NCT...) |
+| Green | Construct | — |
+| Yellow | Assay | — |
+| Orange | Manufacturing | — |
+
+Each card displays: collection badge, record ID, cosine similarity score, clickable source link (where available), and a 200-character text snippet.
 
 ---
 
@@ -398,15 +520,20 @@ Note: Ingest rate is dominated by BGE-small embedding time (~180ms per text on C
 | Query expansion + filtered search | 8-12 ms | Up to 5 expanded terms × applicable collections |
 | Knowledge graph augmentation | < 1 ms | In-memory dictionary lookup |
 | Full retrieve() pipeline | 20-30 ms | Embed + search + expand + merge + knowledge |
+| Comparative entity resolution | < 1 ms | CART_TARGETS → ENTITY_ALIASES → TOXICITIES → MFG |
+| Comparative dual retrieval (2 × 5 collections) | ~365 ms | Two retrieve() calls, ~46 total results (24 + 22) |
 
 ### 8.3 RAG Query Performance
 
 | Operation | Latency | Notes |
 |---|---|---|
 | Full query() (retrieve + Claude generate) | ~24 sec | Dominated by LLM generation |
+| Comparative query (dual retrieve + Claude) | ~30 sec | 365ms retrieval + structured comparison prompt |
 | Streaming query_stream() (time to first token) | ~3 sec | Evidence returned immediately |
-| Response length | 800-2000 chars | Grounded answer with citations |
-| Token count (typical) | 400-800 tokens | Claude Sonnet 4.6 output |
+| Response length (standard) | 800-2000 chars | Grounded answer with citations |
+| Response length (comparative) | 1500-3000 chars | Structured tables + pros/cons + clinical context |
+| Token count (standard) | 400-800 tokens | Claude Sonnet 4.6 output |
+| Token count (comparative) | 800-1500 tokens | Claude Sonnet 4.6 output (max_tokens=3000) |
 
 ### 8.4 Relevance Quality
 
@@ -488,11 +615,11 @@ cart_intelligence_agent/
 │   └── CART_Intelligence_Agent_Design.md    # This document
 ├── src/
 │   ├── __init__.py
-│   ├── models.py                            # Pydantic data models (284 lines)
+│   ├── models.py                            # Pydantic data models + ComparativeResult (299 lines)
 │   ├── collections.py                       # Milvus collection schemas + manager (842 lines)
-│   ├── knowledge.py                         # Knowledge graph: 25 targets, 8 tox, 10 mfg (929 lines)
+│   ├── knowledge.py                         # Knowledge graph + entity aliases + comparison (1,030 lines)
 │   ├── query_expansion.py                   # 6 expansion maps, 111→1086 terms (955 lines)
-│   ├── rag_engine.py                        # Multi-collection RAG engine + Claude (369 lines)
+│   ├── rag_engine.py                        # Multi-collection RAG + comparative analysis (558 lines)
 │   ├── agent.py                             # CAR-T Intelligence Agent (262 lines)
 │   ├── ingest/
 │   │   ├── __init__.py
@@ -506,7 +633,7 @@ cart_intelligence_agent/
 │       ├── __init__.py
 │       └── pubmed_client.py                 # NCBI E-utilities HTTP client (390 lines)
 ├── app/
-│   └── cart_ui.py                           # Streamlit chat interface, NVIDIA theme (351 lines)
+│   └── cart_ui.py                           # Streamlit chat + comparative UI (484 lines)
 ├── config/
 │   └── settings.py                          # Pydantic BaseSettings (69 lines)
 ├── data/
@@ -528,7 +655,7 @@ cart_intelligence_agent/
 └── README.md
 ```
 
-**26 Python files | 7,137 lines of code | Apache 2.0**
+**26 Python files | 7,575 lines of code | Apache 2.0**
 
 ---
 
@@ -540,15 +667,18 @@ cart_intelligence_agent/
 | **Phase 2: Data Ingest** | Complete | PubMed (4,995), ClinicalTrials.gov (973), FDA constructs (6), assay seed (45), manufacturing seed (30) |
 | **Phase 3: RAG Integration** | Complete | Multi-collection search, knowledge augmentation, Claude Sonnet 4.6 streaming, 5 demo queries validated |
 | **Phase 4: UI + Demo** | Complete | Streamlit UI on port 8520, NVIDIA theme, sidebar filters, demo query buttons, streaming responses |
+| **Phase 5: UI + Analysis** | Complete | Clickable PubMed/ClinicalTrials.gov citation links, collapsible evidence panel with collection badges, **Comparative Analysis Mode** with auto-detection, entity resolution (18 aliases), dual retrieval (~365ms), entity-grouped evidence panel, and structured markdown comparison tables |
 
 ### Remaining Work
 
 | Item | Priority | Effort |
 |---|---|---|
+| Export to report (PDF/markdown summary generation) | Medium | 2-3 hours |
 | Agent reasoning loop testing (`agent.py` plan→search→synthesize) | Medium | 1-2 hours |
 | Genomic evidence bridge (connect to existing `genomic_evidence` collection) | Low | 2-3 hours |
 | Nextflow orchestrator integration | Low | 1-2 hours |
 | Additional construct data (published designs beyond FDA-approved) | Low | 2-3 hours |
+| Landing page integration (health check endpoint) | Low | 1 hour |
 
 ---
 
