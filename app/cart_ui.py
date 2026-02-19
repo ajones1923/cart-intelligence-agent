@@ -19,7 +19,8 @@ from pathlib import Path
 
 import streamlit as st
 
-# Add project root to path
+# Add project root to path (must happen before src imports)
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -31,6 +32,8 @@ if not os.environ.get("ANTHROPIC_API_KEY"):
             if line.startswith("ANTHROPIC_API_KEY="):
                 os.environ["ANTHROPIC_API_KEY"] = line.split("=", 1)[1].strip().strip('"')
                 break
+
+from src.export import export_markdown, export_json, generate_filename
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -328,9 +331,39 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Display chat history
-for msg in st.session_state.messages:
+for msg_idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+        # Show export buttons on historical assistant messages that have evidence
+        if msg["role"] == "assistant" and msg.get("evidence_data"):
+            ed = msg["evidence_data"]
+            col1, col2, _spacer = st.columns([1, 1, 4])
+            with col1:
+                md_content = export_markdown(
+                    ed["query"], msg["content"],
+                    evidence=ed.get("evidence"),
+                    comp_result=ed.get("comp_result"),
+                    filters_applied=ed.get("filters"),
+                )
+                st.download_button(
+                    "Download Markdown", md_content,
+                    file_name=generate_filename("md"),
+                    mime="text/markdown",
+                    key=f"dl_md_{msg_idx}",
+                )
+            with col2:
+                json_content = export_json(
+                    ed["query"], msg["content"],
+                    evidence=ed.get("evidence"),
+                    comp_result=ed.get("comp_result"),
+                    filters_applied=ed.get("filters"),
+                )
+                st.download_button(
+                    "Download JSON", json_content,
+                    file_name=generate_filename("json"),
+                    mime="application/json",
+                    key=f"dl_json_{msg_idx}",
+                )
 
 # Chat input
 prompt = st.chat_input("Ask about CAR-T cell therapy development...")
@@ -456,6 +489,44 @@ if prompt:
                 except Exception as e:
                     response_text = f"LLM generation error: {e}"
                     message_placeholder.markdown(response_text)
+
+            # ── Export Buttons ──────────────────────────────────────
+            has_results = (
+                (is_comparative and comp_result and comp_result.total_hits > 0)
+                or (evidence and evidence.hit_count > 0)
+            )
+            if prompt_text and has_results:
+                active_filters = {
+                    "target_antigen": target_filter,
+                    "stage": stage_filter,
+                }
+                col1, col2, _spacer = st.columns([1, 1, 4])
+                with col1:
+                    st.download_button(
+                        "Download Markdown",
+                        export_markdown(
+                            prompt, response_text,
+                            evidence=evidence,
+                            comp_result=comp_result,
+                            filters_applied=active_filters,
+                        ),
+                        file_name=generate_filename("md"),
+                        mime="text/markdown",
+                        key="dl_md_new",
+                    )
+                with col2:
+                    st.download_button(
+                        "Download JSON",
+                        export_json(
+                            prompt, response_text,
+                            evidence=evidence,
+                            comp_result=comp_result,
+                            filters_applied=active_filters,
+                        ),
+                        file_name=generate_filename("json"),
+                        mime="application/json",
+                        key="dl_json_new",
+                    )
         else:
             # Fallback scaffold mode
             response_text = (
@@ -466,8 +537,25 @@ if prompt:
             )
             st.markdown(response_text)
 
+        # Persist message with evidence for export on history replay
+        evidence_data = None
+        if engine and engine.llm:
+            has_results = (
+                (comp_result and comp_result.total_hits > 0)
+                or (evidence and evidence.hit_count > 0)
+            )
+            if has_results:
+                evidence_data = {
+                    "query": prompt,
+                    "evidence": evidence,
+                    "comp_result": comp_result,
+                    "filters": {
+                        "target_antigen": target_filter,
+                        "stage": stage_filter,
+                    },
+                }
         st.session_state.messages.append(
-            {"role": "assistant", "content": response_text}
+            {"role": "assistant", "content": response_text, "evidence_data": evidence_data}
         )
 
 # ═══════════════════════════════════════════════════════════════════════
