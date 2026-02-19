@@ -170,6 +170,24 @@ st.markdown("""
         padding: 12px;
         margin: 6px 0;
     }
+    .evidence-card .score {
+        color: #76B900;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .evidence-card .snippet {
+        color: #ccc;
+        font-size: 0.85rem;
+        margin-top: 6px;
+        line-height: 1.4;
+    }
+    .evidence-card a {
+        color: #76B900;
+        text-decoration: none;
+    }
+    .evidence-card a:hover {
+        text-decoration: underline;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -293,7 +311,6 @@ if prompt:
 
                     st.write(f"Found {evidence.hit_count} results across {evidence.total_collections_searched} collections ({evidence.search_time_ms:.0f}ms)")
 
-                    # Show evidence sources
                     by_coll = evidence.hits_by_collection()
                     for coll_name, hits in by_coll.items():
                         st.write(f"  - **{coll_name}**: {len(hits)} hits")
@@ -303,8 +320,44 @@ if prompt:
                     st.error(f"Search error: {e}")
                     evidence = None
 
+            # ── Evidence Panel ──────────────────────────────────────
+            if evidence and evidence.hit_count > 0:
+                with st.expander(
+                    f"Evidence Sources ({evidence.hit_count} results, "
+                    f"{evidence.search_time_ms:.0f}ms)",
+                    expanded=False,
+                ):
+                    by_coll = evidence.hits_by_collection()
+                    for coll_name, hits in by_coll.items():
+                        badge_class = f"badge-{coll_name.lower()}"
+                        for hit in hits[:5]:
+                            # Build source link
+                            source_link = ""
+                            if hit.collection == "Literature" and hit.id.isdigit():
+                                source_link = (
+                                    f' <a href="https://pubmed.ncbi.nlm.nih.gov/{hit.id}/"'
+                                    f' target="_blank">PubMed</a>'
+                                )
+                            elif hit.collection == "Trial" and hit.id.upper().startswith("NCT"):
+                                source_link = (
+                                    f' <a href="https://clinicaltrials.gov/study/{hit.id}"'
+                                    f' target="_blank">ClinicalTrials.gov</a>'
+                                )
+
+                            snippet = hit.text[:200].replace("<", "&lt;").replace(">", "&gt;")
+                            st.markdown(
+                                f'<div class="evidence-card">'
+                                f'<span class="collection-badge {badge_class}">{hit.collection}</span>'
+                                f' <strong>{hit.id}</strong>'
+                                f' <span class="score">{hit.score:.3f}</span>'
+                                f'{source_link}'
+                                f'<div class="snippet">{snippet}...</div>'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
+
+            # ── LLM Response ────────────────────────────────────────
             if evidence:
-                # Stream LLM response
                 prompt_text = engine._build_prompt(prompt, evidence)
                 from src.rag_engine import CART_SYSTEM_PROMPT
 
@@ -344,7 +397,7 @@ if prompt:
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; color: #666; font-size: 0.8rem;'>"
-    "HCLS AI Factory — CAR-T Intelligence Agent v0.1.0 "
+    "HCLS AI Factory — CAR-T Intelligence Agent v1.1.0 "
     "| Apache 2.0 | Adam Jones | February 2026"
     "</div>",
     unsafe_allow_html=True,

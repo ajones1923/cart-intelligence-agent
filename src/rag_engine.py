@@ -37,7 +37,10 @@ CART_SYSTEM_PROMPT = """You are a CAR-T cell therapy intelligence agent with dee
 You have access to evidence from MULTIPLE data sources spanning the entire CAR-T development lifecycle.
 
 When answering questions:
-- **Cite evidence** with source type: [Literature], [Trial], [Construct], [Assay], [Manufacturing], [Genomic]
+- **Cite evidence using clickable markdown links** provided in the evidence. Use the exact
+  link format from the evidence, e.g. [Literature:PMID 12345678](https://pubmed.ncbi.nlm.nih.gov/12345678/)
+  or [Trial:NCT12345678](https://clinicaltrials.gov/study/NCT12345678). For Assay, Construct,
+  and Manufacturing sources, use the format [Assay:record-id] (no URL needed).
 - **Think cross-functionally** — connect insights across development stages
   (e.g., how manufacturing choices affect clinical outcomes)
 - **Highlight failure modes** and resistance mechanisms when relevant
@@ -330,6 +333,26 @@ class CARTRAGEngine:
 
         return "\n\n".join(context_parts)
 
+    @staticmethod
+    def _format_citation(collection: str, record_id: str) -> str:
+        """Format a citation with clickable URL where possible.
+
+        Literature PMIDs -> PubMed link
+        Trial NCT IDs -> ClinicalTrials.gov link
+        Others -> plain [Collection:ID] format
+        """
+        if collection == "Literature" and record_id.isdigit():
+            return (
+                f"[Literature:PMID {record_id}]"
+                f"(https://pubmed.ncbi.nlm.nih.gov/{record_id}/)"
+            )
+        if collection == "Trial" and record_id.upper().startswith("NCT"):
+            return (
+                f"[Trial:{record_id}]"
+                f"(https://clinicaltrials.gov/study/{record_id})"
+            )
+        return f"[{collection}:{record_id}]"
+
     def _build_prompt(self, question: str,
                       evidence: CrossCollectionResult) -> str:
         """Build the LLM prompt with evidence and knowledge context."""
@@ -340,8 +363,9 @@ class CARTRAGEngine:
         for coll_name, hits in by_coll.items():
             section_lines = [f"### Evidence from {coll_name}"]
             for i, hit in enumerate(hits[:5], 1):
+                citation = self._format_citation(hit.collection, hit.id)
                 section_lines.append(
-                    f"{i}. [{hit.collection}:{hit.id}] "
+                    f"{i}. {citation} "
                     f"(score={hit.score:.3f}) {hit.text[:500]}"
                 )
             sections.append("\n".join(section_lines))
@@ -364,6 +388,6 @@ class CARTRAGEngine:
             f"## Question\n\n"
             f"{question}\n\n"
             f"Please provide a comprehensive answer grounded in the evidence above. "
-            f"Cite sources using [Collection:ID] format. "
+            f"Cite sources using the clickable markdown links provided in each evidence item. "
             f"Consider cross-functional insights across all stages of CAR-T development."
         )
