@@ -25,7 +25,28 @@ The CAR-T Intelligence Agent breaks down data silos across the 5 stages of CAR-T
 "How does T-cell exhaustion affect CAR-T persistence?"
 ```
 
-All queries return grounded, cross-collection answers with `[Literature:PMID]` and `[Trial:NCT...]` citations.
+All queries return grounded, cross-collection answers with clickable [Literature:PMID](https://pubmed.ncbi.nlm.nih.gov/) and [Trial:NCT...](https://clinicaltrials.gov/) citations.
+
+### Comparative Analysis Mode
+
+Comparative queries are **auto-detected** and produce structured side-by-side analysis with markdown tables, advantages/limitations, and clinical context.
+
+```
+"Compare CD19 vs BCMA"                              → Target vs target
+"Compare 4-1BB vs CD28 costimulatory domains"        → Costimulatory domain comparison
+"Kymriah versus Carvykti"                            → Product vs product (resolves to CD19 vs BCMA)
+"Compare CRS and ICANS toxicity"                     → Toxicity profile comparison
+```
+
+**How it works:** The engine detects "vs/versus/compare" keywords, parses two entities, resolves each against the knowledge graph (25 antigens, 6 products, 8 toxicities, 10 manufacturing processes), runs **dual retrievals** with per-entity filtering, and builds a comparative prompt that instructs Claude to produce structured tables. The evidence panel groups results by entity with color-coded headers.
+
+| Feature | Detail |
+|---|---|
+| Entity types | Targets, FDA products, costimulatory domains, toxicities, manufacturing |
+| Entity resolution | 25 antigens + 18 product/domain aliases |
+| Dual retrieval | ~365ms for 46 results (24 + 22 per entity) |
+| Structured output | Comparison table, advantages, limitations, clinical context |
+| Fallback | Unrecognized entities gracefully fall back to normal query path |
 
 ## Architecture
 
@@ -33,18 +54,28 @@ All queries return grounded, cross-collection answers with `[Literature:PMID]` a
 User Query
     |
     v
-[BGE-small-en-v1.5 Embedding] (384-dim, asymmetric query prefix)
-    |
-    v
-[Parallel Search: 5 Milvus Collections] (IVF_FLAT / COSINE)
-    |               |               |               |               |
-    v               v               v               v               v
-Literature      Trials        Constructs        Assays       Manufacturing
- 4,995           973              6               0               0
-    |               |               |               |               |
-    +-------+-------+-------+-------+-------+-------+
-            |
-            v
+[Comparative Detection] ──── "X vs Y" detected? ──── YES ──┐
+    |                                                        |
+    NO                                              [Parse Two Entities]
+    |                                              (resolve via knowledge graph)
+    v                                                        |
+[BGE-small-en-v1.5 Embedding]                      [Dual Retrieval]
+(384-dim, asymmetric query prefix)                  (Entity A + Entity B)
+    |                                                        |
+    v                                                        v
+[Parallel Search: 5 Milvus Collections]     [Comparative Prompt Builder]
+(IVF_FLAT / COSINE)                         (tables + pros/cons format)
+    |               |           |                            |
+    v               v           v                            |
+Literature      Trials     Constructs                        |
+ 4,995           973           6                             |
+    |               |           |                            |
+ Assays      Manufacturing     |                             |
+   45             30           |                             |
+    |               |           |                            |
+    +-------+-------+----------+                             |
+            |                                                |
+            v                                                v
     [Query Expansion] (6 maps, 111 keywords -> 1,086 terms)
             |
             v
@@ -147,11 +178,11 @@ cart_intelligence_agent/
 ├── Docs/
 │   └── CART_Intelligence_Agent_Design.md  # Architecture design document
 ├── src/
-│   ├── models.py                  # Pydantic data models (15 models + enums)
+│   ├── models.py                  # Pydantic data models (16 models + enums)
 │   ├── collections.py             # 5 Milvus collection schemas + manager
 │   ├── knowledge.py               # Knowledge graph (25 targets, 8 toxicities, 10 mfg)
 │   ├── query_expansion.py         # 6 expansion maps (111 keywords -> 1,086 terms)
-│   ├── rag_engine.py              # Multi-collection RAG engine + Claude
+│   ├── rag_engine.py              # Multi-collection RAG engine + comparative analysis + Claude
 │   ├── agent.py                   # CAR-T Intelligence Agent (plan -> search -> synthesize)
 │   ├── ingest/
 │   │   ├── base.py                # Base ingest pipeline (fetch -> parse -> embed -> store)
@@ -163,7 +194,7 @@ cart_intelligence_agent/
 │   └── utils/
 │       └── pubmed_client.py       # NCBI E-utilities HTTP client
 ├── app/
-│   └── cart_ui.py                 # Streamlit chat interface (NVIDIA theme)
+│   └── cart_ui.py                 # Streamlit chat interface (NVIDIA theme, comparative mode)
 ├── config/
 │   └── settings.py                # Pydantic BaseSettings configuration
 ├── data/
@@ -183,7 +214,7 @@ cart_intelligence_agent/
 └── LICENSE                        # Apache 2.0
 ```
 
-**23 Python files | 6,836 lines | Apache 2.0**
+**23 Python files | ~7,500 lines | Apache 2.0**
 
 ## Knowledge Graph
 
@@ -191,6 +222,7 @@ cart_intelligence_agent/
 |---|---|---|
 | Target Antigens | 25 | CD19, BCMA, CD22, CD20, CD30, HER2, GPC3, EGFR, Mesothelin, GPRC5D, ... |
 | FDA-Approved Products | 6 | Kymriah, Yescarta, Tecartus, Breyanzi, Abecma, Carvykti |
+| Entity Aliases | 18 | Product names, generic names, costimulatory domains (for comparative resolution) |
 | Toxicity Profiles | 8 | CRS, ICANS, B-cell aplasia, HLH/MAS, cytopenias, TLS, GvHD, on-target/off-tumor |
 | Manufacturing Processes | 10 | Transduction, expansion, leukapheresis, cryopreservation, release testing, ... |
 | Query Expansion Maps | 6 | Target Antigen, Disease, Toxicity, Manufacturing, Mechanism, Construct |
@@ -207,7 +239,9 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified memory):
 | Assay seed ingest (45 records) | ~30 sec |
 | Manufacturing seed ingest (30 records) | ~30 sec |
 | Vector search (5 collections, top-5 each) | 12-16 ms (cached) |
+| Comparative dual retrieval (2x5 collections) | ~365 ms |
 | Full RAG query (search + Claude) | ~24 sec |
+| Comparative RAG query (dual search + Claude) | ~30 sec |
 | Cosine similarity scores | 0.74 - 0.90 |
 
 ## Status
@@ -216,6 +250,7 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified memory):
 - **Week 2 Days 1-3 (Data)** -- Complete. PubMed (4,995) + ClinicalTrials.gov (973) + FDA constructs (6) ingested. End-to-end validation passing.
 - **Week 2 Days 4-5 (Integration)** -- Complete. Full RAG pipeline with Claude LLM generating grounded cross-functional answers. Streamlit UI working.
 - **Week 2 Day 5+ (Assay + Manufacturing Data)** -- Complete. 45 curated assay records + 30 manufacturing/CMC records seeded. All 5 collections populated. Total: 6,049 vectors.
+- **Week 3 (UI + Analysis)** -- Complete. Clickable PubMed/ClinicalTrials.gov citation links, collapsible evidence panel with collection badges, and **Comparative Analysis Mode** with auto-detection, dual retrieval, entity-grouped evidence, and structured markdown tables.
 
 ## Credits
 
