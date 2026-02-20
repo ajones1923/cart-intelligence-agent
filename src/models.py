@@ -1,6 +1,6 @@
 """Pydantic data models for CAR-T Intelligence Agent.
 
-Maps to the 5 Milvus collections + knowledge graph entities.
+Maps to the 10 Milvus collections + knowledge graph entities.
 Follows the same dataclass/Pydantic pattern as:
   - rag-chat-pipeline/src/vcf_parser.py (VariantEvidence)
   - drug-discovery-pipeline/src/models.py (GeneratedMolecule, DockingResult)
@@ -93,6 +93,51 @@ class FDAStatus(str, Enum):
     PHASE_1 = "phase1"
     PRECLINICAL = "preclinical"
     DISCONTINUED = "discontinued"
+
+
+class SafetyEventType(str, Enum):
+    CRS = "CRS"
+    ICANS = "ICANS"
+    CYTOPENIA = "cytopenia"
+    INFECTION = "infection"
+    SECONDARY_MALIGNANCY = "secondary_malignancy"
+    ORGAN_TOXICITY = "organ_toxicity"
+    NEUROLOGIC = "neurologic"
+    CARDIAC = "cardiac"
+
+
+class BiomarkerType(str, Enum):
+    PREDICTIVE = "predictive"
+    PROGNOSTIC = "prognostic"
+    PHARMACODYNAMIC = "pharmacodynamic"
+    MONITORING = "monitoring"
+    RESISTANCE = "resistance"
+
+
+class EvidenceLevel(str, Enum):
+    VALIDATED = "validated"
+    EMERGING = "emerging"
+    EXPLORATORY = "exploratory"
+
+
+class RegulatoryEvent(str, Enum):
+    BLA = "BLA"
+    BREAKTHROUGH_THERAPY = "breakthrough_therapy"
+    RMAT = "RMAT"
+    ACCELERATED_APPROVAL = "accelerated_approval"
+    FULL_APPROVAL = "full_approval"
+    LABEL_UPDATE = "label_update"
+    REMS = "REMS"
+    POST_MARKETING_REQ = "post_marketing_requirement"
+    COMPLETE_RESPONSE = "complete_response"
+
+
+class RWEStudyType(str, Enum):
+    RETROSPECTIVE = "retrospective"
+    REGISTRY = "registry"
+    CLAIMS = "claims"
+    EHR_ANALYSIS = "ehr_analysis"
+    META_ANALYSIS = "meta_analysis"
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -226,6 +271,136 @@ class ManufacturingRecord(BaseModel):
             parts.append(f"Spec: {self.target_spec}")
         if self.met_spec:
             parts.append(f"Met spec: {self.met_spec}")
+        return " ".join(parts)
+
+
+class SafetyRecord(BaseModel):
+    """Pharmacovigilance / post-market safety record — maps to cart_safety."""
+    id: str = Field(..., max_length=100)
+    text_summary: str = Field(..., max_length=3000)
+    product: str = Field("", max_length=200)
+    event_type: SafetyEventType = SafetyEventType.CRS
+    severity_grade: str = Field("", max_length=100, description="Grade 1-5 or mild/moderate/severe")
+    onset_timing: str = Field("", max_length=100, description="e.g., median day 5 post-infusion")
+    incidence_rate: str = Field("", max_length=200, description="e.g., 42% any grade")
+    management_protocol: str = Field("", max_length=500)
+    outcome: str = Field("", max_length=100)
+    reporting_source: str = Field("", max_length=50, description="FAERS, trial, registry, label")
+    year: int = Field(0, ge=0, le=2030)
+
+    def to_embedding_text(self) -> str:
+        parts = [self.text_summary]
+        if self.product:
+            parts.append(f"Product: {self.product}")
+        if self.event_type:
+            parts.append(f"Event: {self.event_type.value}")
+        if self.management_protocol:
+            parts.append(f"Management: {self.management_protocol}")
+        return " ".join(parts)
+
+
+class BiomarkerRecord(BaseModel):
+    """Predictive / pharmacodynamic biomarker — maps to cart_biomarkers."""
+    id: str = Field(..., max_length=100)
+    text_summary: str = Field(..., max_length=3000)
+    biomarker_name: str = Field("", max_length=100)
+    biomarker_type: BiomarkerType = BiomarkerType.PREDICTIVE
+    assay_method: str = Field("", max_length=100, description="ELISA, flow cytometry, qPCR, etc.")
+    clinical_cutoff: str = Field("", max_length=100, description="e.g., >500 mg/L")
+    predictive_value: str = Field("", max_length=200)
+    associated_outcome: str = Field("", max_length=200)
+    target_antigen: str = Field("", max_length=100)
+    disease: str = Field("", max_length=200)
+    evidence_level: EvidenceLevel = EvidenceLevel.EMERGING
+
+    def to_embedding_text(self) -> str:
+        parts = [self.text_summary]
+        if self.biomarker_name:
+            parts.append(f"Biomarker: {self.biomarker_name}")
+        if self.assay_method:
+            parts.append(f"Method: {self.assay_method}")
+        if self.associated_outcome:
+            parts.append(f"Outcome: {self.associated_outcome}")
+        return " ".join(parts)
+
+
+class RegulatoryRecord(BaseModel):
+    """FDA regulatory milestone — maps to cart_regulatory."""
+    id: str = Field(..., max_length=100)
+    text_summary: str = Field(..., max_length=3000)
+    product: str = Field("", max_length=200)
+    regulatory_event: RegulatoryEvent = RegulatoryEvent.BLA
+    date: str = Field("", max_length=20, description="YYYY-MM-DD or YYYY-MM")
+    agency: str = Field("FDA", max_length=20, description="FDA, EMA, PMDA")
+    indication: str = Field("", max_length=200)
+    decision: str = Field("", max_length=100, description="approved, rejected, pending")
+    conditions: str = Field("", max_length=500)
+    pivotal_trial: str = Field("", max_length=100)
+
+    def to_embedding_text(self) -> str:
+        parts = [self.text_summary]
+        if self.product:
+            parts.append(f"Product: {self.product}")
+        if self.regulatory_event:
+            parts.append(f"Event: {self.regulatory_event.value}")
+        if self.indication:
+            parts.append(f"Indication: {self.indication}")
+        return " ".join(parts)
+
+
+class SequenceRecord(BaseModel):
+    """Molecular / structural data for CAR constructs — maps to cart_sequences."""
+    id: str = Field(..., max_length=100)
+    text_summary: str = Field(..., max_length=3000)
+    construct_name: str = Field("", max_length=200)
+    target_antigen: str = Field("", max_length=100)
+    scfv_clone: str = Field("", max_length=100, description="e.g., FMC63, SJ25C1")
+    binding_affinity_kd: str = Field("", max_length=50, description="e.g., 0.3 nM")
+    heavy_chain_vregion: str = Field("", max_length=500, description="VH framework/CDR info")
+    light_chain_vregion: str = Field("", max_length=500, description="VL framework/CDR info")
+    framework: str = Field("", max_length=100, description="IgG1, IgG4, etc.")
+    species_origin: str = Field("murine", max_length=30, description="murine, humanized, fully_human")
+    immunogenicity_risk: str = Field("", max_length=20, description="low, moderate, high")
+    structural_notes: str = Field("", max_length=1000)
+
+    def to_embedding_text(self) -> str:
+        parts = [self.text_summary]
+        if self.construct_name:
+            parts.append(f"Construct: {self.construct_name}")
+        if self.scfv_clone:
+            parts.append(f"Clone: {self.scfv_clone}")
+        if self.binding_affinity_kd:
+            parts.append(f"Kd: {self.binding_affinity_kd}")
+        if self.species_origin:
+            parts.append(f"Origin: {self.species_origin}")
+        return " ".join(parts)
+
+
+class RealWorldRecord(BaseModel):
+    """Real-world evidence / outcomes — maps to cart_realworld."""
+    id: str = Field(..., max_length=100)
+    text_summary: str = Field(..., max_length=3000)
+    study_type: RWEStudyType = RWEStudyType.RETROSPECTIVE
+    data_source: str = Field("", max_length=100, description="CIBMTR, institutional, claims, SEER")
+    product: str = Field("", max_length=200)
+    indication: str = Field("", max_length=200)
+    population_size: int = Field(0, ge=0)
+    median_followup_months: float = Field(0.0, ge=0.0)
+    primary_endpoint: str = Field("", max_length=100)
+    outcome_value: str = Field("", max_length=100)
+    setting: str = Field("", max_length=50, description="academic, community, both")
+    special_population: str = Field("", max_length=200, description="elderly, bridging, CNS, etc.")
+
+    def to_embedding_text(self) -> str:
+        parts = [self.text_summary]
+        if self.product:
+            parts.append(f"Product: {self.product}")
+        if self.data_source:
+            parts.append(f"Source: {self.data_source}")
+        if self.primary_endpoint and self.outcome_value:
+            parts.append(f"{self.primary_endpoint}: {self.outcome_value}")
+        if self.special_population:
+            parts.append(f"Population: {self.special_population}")
         return " ".join(parts)
 
 

@@ -300,6 +300,66 @@ def _format_evidence_table(hits: list[SearchHit], collection_name: str) -> list[
             batch = m.get("batch_id", "")
             lines.append(f"| {i} | {hit.id} | {hit.score:.3f} | {step} | {param} | {batch} |")
 
+    elif collection_name == "Safety":
+        lines.append("| # | ID | Score | Product | Event | Severity | Onset | Source |")
+        lines.append("|---|-----|-------|---------|-------|----------|-------|--------|")
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            product = m.get("product", "")[:25]
+            event = m.get("event_type", "")
+            severity = m.get("severity_grade", "")
+            onset = m.get("onset_timing", "")[:20]
+            source = m.get("reporting_source", "")
+            lines.append(f"| {i} | {hit.id} | {hit.score:.3f} | {product} | {event} | {severity} | {onset} | {source} |")
+
+    elif collection_name == "Biomarker":
+        lines.append("| # | ID | Score | Biomarker | Type | Method | Cutoff | Outcome |")
+        lines.append("|---|-----|-------|-----------|------|--------|--------|---------|")
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            name = m.get("biomarker_name", "")
+            btype = m.get("biomarker_type", "")
+            method = m.get("assay_method", "")[:20]
+            cutoff = m.get("clinical_cutoff", "")[:20]
+            outcome = m.get("associated_outcome", "")[:25]
+            lines.append(f"| {i} | {hit.id} | {hit.score:.3f} | {name} | {btype} | {method} | {cutoff} | {outcome} |")
+
+    elif collection_name == "Regulatory":
+        lines.append("| # | ID | Score | Product | Event | Date | Agency | Decision |")
+        lines.append("|---|-----|-------|---------|-------|------|--------|----------|")
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            product = m.get("product", "")[:25]
+            event = m.get("regulatory_event", "")
+            date = m.get("date", "")
+            agency = m.get("agency", "")
+            decision = m.get("decision", "")
+            lines.append(f"| {i} | {hit.id} | {hit.score:.3f} | {product} | {event} | {date} | {agency} | {decision} |")
+
+    elif collection_name == "Sequence":
+        lines.append("| # | ID | Score | Construct | Target | Clone | Kd | Origin |")
+        lines.append("|---|-----|-------|-----------|--------|-------|-----|--------|")
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            construct = m.get("construct_name", "")[:25]
+            target = m.get("target_antigen", "")
+            clone = m.get("scfv_clone", "")
+            kd = m.get("binding_affinity_kd", "")
+            origin = m.get("species_origin", "")
+            lines.append(f"| {i} | {hit.id} | {hit.score:.3f} | {construct} | {target} | {clone} | {kd} | {origin} |")
+
+    elif collection_name == "RealWorld":
+        lines.append("| # | ID | Score | Study Type | Product | Population | Endpoint | Outcome |")
+        lines.append("|---|-----|-------|-----------|---------|------------|----------|---------|")
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            stype = m.get("study_type", "")
+            product = m.get("product", "")[:20]
+            pop = m.get("special_population", "") or m.get("setting", "")
+            endpoint = m.get("primary_endpoint", "")
+            outcome = m.get("outcome_value", "")
+            lines.append(f"| {i} | {hit.id} | {hit.score:.3f} | {stype} | {product} | {pop} | {endpoint} | {outcome} |")
+
     else:
         # Generic fallback
         lines.append("| # | ID | Score | Text |")
@@ -463,6 +523,66 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
                 _trunc(m.get("process_step", ""), 18),
                 _trunc(m.get("parameter", ""), 30),
                 _trunc(m.get("batch_id", ""), 15),
+            ])
+    elif collection_name == "Safety":
+        header = ["#", "ID", "Score", "Product", "Event", "Severity", "Source"]
+        rows = [header]
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            rows.append([
+                str(i), _trunc(hit.id, 25), f"{hit.score:.3f}",
+                _trunc(m.get("product", ""), 22),
+                _trunc(m.get("event_type", ""), 15),
+                _trunc(m.get("severity_grade", ""), 12),
+                _trunc(m.get("reporting_source", ""), 15),
+            ])
+    elif collection_name == "Biomarker":
+        header = ["#", "ID", "Score", "Biomarker", "Type", "Method", "Cutoff"]
+        rows = [header]
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            rows.append([
+                str(i), _trunc(hit.id, 25), f"{hit.score:.3f}",
+                _trunc(m.get("biomarker_name", ""), 18),
+                _trunc(m.get("biomarker_type", ""), 15),
+                _trunc(m.get("assay_method", ""), 18),
+                _trunc(m.get("clinical_cutoff", ""), 18),
+            ])
+    elif collection_name == "Regulatory":
+        header = ["#", "ID", "Score", "Product", "Event", "Date", "Agency"]
+        rows = [header]
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            rows.append([
+                str(i), _trunc(hit.id, 25), f"{hit.score:.3f}",
+                _trunc(m.get("product", ""), 22),
+                _trunc(m.get("regulatory_event", ""), 20),
+                _trunc(m.get("date", ""), 10),
+                _trunc(m.get("agency", ""), 6),
+            ])
+    elif collection_name == "Sequence":
+        header = ["#", "ID", "Score", "Construct", "Target", "Clone", "Kd"]
+        rows = [header]
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            rows.append([
+                str(i), _trunc(hit.id, 20), f"{hit.score:.3f}",
+                _trunc(m.get("construct_name", ""), 22),
+                _trunc(m.get("target_antigen", ""), 10),
+                _trunc(m.get("scfv_clone", ""), 15),
+                _trunc(m.get("binding_affinity_kd", ""), 10),
+            ])
+    elif collection_name == "RealWorld":
+        header = ["#", "ID", "Score", "Type", "Product", "Endpoint", "Outcome"]
+        rows = [header]
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            rows.append([
+                str(i), _trunc(hit.id, 20), f"{hit.score:.3f}",
+                _trunc(m.get("study_type", ""), 15),
+                _trunc(m.get("product", ""), 20),
+                _trunc(m.get("primary_endpoint", ""), 15),
+                _trunc(m.get("outcome_value", ""), 18),
             ])
     else:
         header = ["#", "ID", "Score", "Text"]

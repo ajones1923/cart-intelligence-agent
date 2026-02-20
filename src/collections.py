@@ -1,11 +1,16 @@
 """Milvus collection management for CAR-T Intelligence Agent.
 
-Manages 5 domain-specific collections:
+Manages 10 domain-specific collections:
   - cart_literature    — Published research & patents
   - cart_trials        — ClinicalTrials.gov records
   - cart_constructs    — CAR construct designs
   - cart_assays        — In vitro / in vivo assay results
   - cart_manufacturing — Manufacturing / CMC records
+  - cart_safety        — Pharmacovigilance & post-market safety
+  - cart_biomarkers    — Predictive & pharmacodynamic biomarkers
+  - cart_regulatory    — FDA regulatory milestones
+  - cart_sequences     — Molecular & structural data
+  - cart_realworld     — Real-world evidence & outcomes
 
 Follows the same pymilvus pattern as:
   rag-chat-pipeline/src/milvus_client.py (MilvusClient)
@@ -30,10 +35,15 @@ from pymilvus import (
 
 from src.models import (
     AssayResult,
+    BiomarkerRecord,
     CARConstruct,
     CARTLiterature,
     ClinicalTrial,
     ManufacturingRecord,
+    RealWorldRecord,
+    RegulatoryRecord,
+    SafetyRecord,
+    SequenceRecord,
 )
 
 
@@ -460,6 +470,117 @@ MANUFACTURING_SCHEMA = CollectionSchema(
     description="CAR-T manufacturing / CMC process records",
 )
 
+# ── cart_safety ────────────────────────────────────────────────────
+
+SAFETY_FIELDS = [
+    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+    FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=EMBEDDING_DIM),
+    FieldSchema(name="text_summary", dtype=DataType.VARCHAR, max_length=3000),
+    FieldSchema(name="product", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="event_type", dtype=DataType.VARCHAR, max_length=30),
+    FieldSchema(name="severity_grade", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="onset_timing", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="incidence_rate", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="management_protocol", dtype=DataType.VARCHAR, max_length=500),
+    FieldSchema(name="outcome", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="reporting_source", dtype=DataType.VARCHAR, max_length=50),
+    FieldSchema(name="year", dtype=DataType.INT64),
+]
+
+SAFETY_SCHEMA = CollectionSchema(
+    fields=SAFETY_FIELDS,
+    description="CAR-T pharmacovigilance and post-market safety data",
+)
+
+# ── cart_biomarkers ────────────────────────────────────────────────
+
+BIOMARKER_FIELDS = [
+    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+    FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=EMBEDDING_DIM),
+    FieldSchema(name="text_summary", dtype=DataType.VARCHAR, max_length=3000),
+    FieldSchema(name="biomarker_name", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="biomarker_type", dtype=DataType.VARCHAR, max_length=30),
+    FieldSchema(name="assay_method", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="clinical_cutoff", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="predictive_value", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="associated_outcome", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="target_antigen", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="disease", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="evidence_level", dtype=DataType.VARCHAR, max_length=20),
+]
+
+BIOMARKER_SCHEMA = CollectionSchema(
+    fields=BIOMARKER_FIELDS,
+    description="CAR-T predictive and pharmacodynamic biomarkers",
+)
+
+# ── cart_regulatory ────────────────────────────────────────────────
+
+REGULATORY_FIELDS = [
+    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+    FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=EMBEDDING_DIM),
+    FieldSchema(name="text_summary", dtype=DataType.VARCHAR, max_length=3000),
+    FieldSchema(name="product", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="regulatory_event", dtype=DataType.VARCHAR, max_length=50),
+    FieldSchema(name="date", dtype=DataType.VARCHAR, max_length=20),
+    FieldSchema(name="agency", dtype=DataType.VARCHAR, max_length=20),
+    FieldSchema(name="indication", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="decision", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="conditions", dtype=DataType.VARCHAR, max_length=500),
+    FieldSchema(name="pivotal_trial", dtype=DataType.VARCHAR, max_length=100),
+]
+
+REGULATORY_SCHEMA = CollectionSchema(
+    fields=REGULATORY_FIELDS,
+    description="CAR-T FDA regulatory milestones and approvals",
+)
+
+# ── cart_sequences ─────────────────────────────────────────────────
+
+SEQUENCE_FIELDS = [
+    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+    FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=EMBEDDING_DIM),
+    FieldSchema(name="text_summary", dtype=DataType.VARCHAR, max_length=3000),
+    FieldSchema(name="construct_name", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="target_antigen", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="scfv_clone", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="binding_affinity_kd", dtype=DataType.VARCHAR, max_length=50),
+    FieldSchema(name="heavy_chain_vregion", dtype=DataType.VARCHAR, max_length=500),
+    FieldSchema(name="light_chain_vregion", dtype=DataType.VARCHAR, max_length=500),
+    FieldSchema(name="framework", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="species_origin", dtype=DataType.VARCHAR, max_length=30),
+    FieldSchema(name="immunogenicity_risk", dtype=DataType.VARCHAR, max_length=20),
+    FieldSchema(name="structural_notes", dtype=DataType.VARCHAR, max_length=1000),
+]
+
+SEQUENCE_SCHEMA = CollectionSchema(
+    fields=SEQUENCE_FIELDS,
+    description="CAR-T molecular and structural data (scFv, binding affinity)",
+)
+
+# ── cart_realworld ─────────────────────────────────────────────────
+
+REALWORLD_FIELDS = [
+    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+    FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=EMBEDDING_DIM),
+    FieldSchema(name="text_summary", dtype=DataType.VARCHAR, max_length=3000),
+    FieldSchema(name="study_type", dtype=DataType.VARCHAR, max_length=30),
+    FieldSchema(name="data_source", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="product", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="indication", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="population_size", dtype=DataType.INT64),
+    FieldSchema(name="median_followup_months", dtype=DataType.FLOAT),
+    FieldSchema(name="primary_endpoint", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="outcome_value", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="setting", dtype=DataType.VARCHAR, max_length=50),
+    FieldSchema(name="special_population", dtype=DataType.VARCHAR, max_length=200),
+]
+
+REALWORLD_SCHEMA = CollectionSchema(
+    fields=REALWORLD_FIELDS,
+    description="CAR-T real-world evidence and outcomes",
+)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # COLLECTION REGISTRY
@@ -471,6 +592,11 @@ COLLECTION_SCHEMAS: Dict[str, CollectionSchema] = {
     "cart_constructs": CONSTRUCTS_SCHEMA,
     "cart_assays": ASSAYS_SCHEMA,
     "cart_manufacturing": MANUFACTURING_SCHEMA,
+    "cart_safety": SAFETY_SCHEMA,
+    "cart_biomarkers": BIOMARKER_SCHEMA,
+    "cart_regulatory": REGULATORY_SCHEMA,
+    "cart_sequences": SEQUENCE_SCHEMA,
+    "cart_realworld": REALWORLD_SCHEMA,
 }
 
 # Maps collection names to their Pydantic model class for validation
@@ -480,6 +606,11 @@ COLLECTION_MODELS: Dict[str, type] = {
     "cart_constructs": CARConstruct,
     "cart_assays": AssayResult,
     "cart_manufacturing": ManufacturingRecord,
+    "cart_safety": SafetyRecord,
+    "cart_biomarkers": BiomarkerRecord,
+    "cart_regulatory": RegulatoryRecord,
+    "cart_sequences": SequenceRecord,
+    "cart_realworld": RealWorldRecord,
 }
 
 
@@ -489,7 +620,7 @@ COLLECTION_MODELS: Dict[str, type] = {
 
 
 class CARTCollectionManager:
-    """Manages all 5 CAR-T Milvus collections.
+    """Manages all 10 CAR-T Milvus collections.
 
     Provides create/drop/insert/search operations across the full set of
     CAR-T domain collections, following the same pymilvus patterns as
@@ -599,7 +730,7 @@ class CARTCollectionManager:
         Returns:
             Dict mapping collection name to Collection object.
         """
-        logger.info("Creating all 5 CAR-T collections")
+        logger.info("Creating all 10 CAR-T collections")
         for name, schema in COLLECTION_SCHEMAS.items():
             self.create_collection(name, schema, drop_existing=drop_existing)
         logger.info(f"All {len(COLLECTION_SCHEMAS)} collections ready")
@@ -649,7 +780,7 @@ class CARTCollectionManager:
     # ── Stats ────────────────────────────────────────────────────────
 
     def get_collection_stats(self) -> Dict[str, int]:
-        """Get row counts for all 5 CAR-T collections.
+        """Get row counts for all 10 CAR-T collections.
 
         Returns:
             Dict mapping collection name to entity count.

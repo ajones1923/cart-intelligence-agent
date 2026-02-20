@@ -165,6 +165,11 @@ st.markdown("""
     .badge-assay { background: #F9C500; color: black; }
     .badge-manufacturing { background: #DF6500; color: white; }
     .badge-genomic { background: #1DBFA4; color: white; }
+    .badge-safety { background: #E53935; color: white; }
+    .badge-biomarker { background: #00897B; color: white; }
+    .badge-regulatory { background: #5C6BC0; color: white; }
+    .badge-sequence { background: #F06292; color: white; }
+    .badge-realworld { background: #8D6E63; color: white; }
 
     .evidence-card {
         background: #1e1e1e;
@@ -282,6 +287,11 @@ with st.sidebar:
         "What manufacturing parameters predict response?",
         "BCMA CAR-T resistance mechanisms in myeloma",
         "How does T-cell exhaustion affect persistence?",
+        "What are the long-term safety signals for CD19 CAR-T products?",
+        "Which biomarkers best predict CRS severity?",
+        "Compare the FDA regulatory pathway of Kymriah vs Yescarta",
+        "What is the binding affinity of FMC63 scFv?",
+        "How do real-world CAR-T outcomes compare between academic and community centers?",
     ]
     for q in demo_queries:
         if st.button(q, key=f"demo_{q[:20]}"):

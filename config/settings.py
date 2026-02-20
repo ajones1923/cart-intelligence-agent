@@ -34,6 +34,11 @@ class CARTSettings(BaseSettings):
     COLLECTION_ASSAYS: str = "cart_assays"
     COLLECTION_MANUFACTURING: str = "cart_manufacturing"
     COLLECTION_GENOMIC: str = "genomic_evidence"  # Existing collection
+    COLLECTION_SAFETY: str = "cart_safety"
+    COLLECTION_BIOMARKERS: str = "cart_biomarkers"
+    COLLECTION_REGULATORY: str = "cart_regulatory"
+    COLLECTION_SEQUENCES: str = "cart_sequences"
+    COLLECTION_REALWORLD: str = "cart_realworld"
 
     # ── Embeddings ──
     EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
@@ -54,7 +59,12 @@ class CARTSettings(BaseSettings):
     WEIGHT_TRIALS: float = 0.25
     WEIGHT_CONSTRUCTS: float = 0.20
     WEIGHT_ASSAYS: float = 0.15
-    WEIGHT_MANUFACTURING: float = 0.10
+    WEIGHT_MANUFACTURING: float = 0.07
+    WEIGHT_SAFETY: float = 0.08
+    WEIGHT_BIOMARKERS: float = 0.08
+    WEIGHT_REGULATORY: float = 0.06
+    WEIGHT_SEQUENCES: float = 0.06
+    WEIGHT_REALWORLD: float = 0.07
 
     # ── PubMed ──
     NCBI_API_KEY: Optional[str] = None  # Optional, increases rate limit

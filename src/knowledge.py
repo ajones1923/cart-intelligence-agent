@@ -866,6 +866,7 @@ def get_all_context_for_query(query: str) -> str:
         Combined knowledge context string.
     """
     query_upper = query.upper()
+    query_lower = query.lower()
     sections = []
 
     # Check targets
@@ -911,6 +912,21 @@ def get_all_context_for_query(query: str) -> str:
             if ctx:
                 sections.append(ctx)
 
+    # Check biomarkers
+    for key in CART_BIOMARKERS:
+        aliases = [key, CART_BIOMARKERS[key]["full_name"].lower()]
+        if any(a.lower() in query_lower for a in aliases):
+            ctx = get_biomarker_context(key)
+            if ctx:
+                sections.append(ctx)
+
+    # Check regulatory (product names)
+    for key in CART_REGULATORY:
+        if key.lower() in query_lower or CART_REGULATORY[key]["generic_name"].lower() in query_lower:
+            ctx = get_regulatory_context(key)
+            if ctx:
+                sections.append(ctx)
+
     if not sections:
         return ""
 
@@ -926,7 +942,259 @@ def get_knowledge_stats() -> Dict[str, int]:
         ),
         "toxicity_profiles": len(CART_TOXICITIES),
         "manufacturing_processes": len(CART_MANUFACTURING),
+        "biomarkers": len(CART_BIOMARKERS),
+        "regulatory_products": len(CART_REGULATORY),
     }
+
+
+# =============================================================================
+# 4. CART_BIOMARKERS — Biomarker knowledge graph (~15 entries)
+# =============================================================================
+
+CART_BIOMARKERS: Dict[str, Dict[str, Any]] = {
+    "ferritin": {
+        "full_name": "Serum Ferritin",
+        "type": "predictive",
+        "assay_method": "Immunoassay (ELISA/CLIA)",
+        "clinical_cutoff": ">500 mg/L pre-infusion",
+        "predictive_value": "Elevated baseline ferritin (>500 mg/L) predicts grade 3+ CRS with PPV 72%",
+        "associated_outcome": "CRS severity",
+        "evidence_level": "validated",
+        "key_references": ["PMID:29385376", "PMID:30409105"],
+    },
+    "crp": {
+        "full_name": "C-Reactive Protein",
+        "type": "predictive",
+        "assay_method": "Immunoturbidimetry",
+        "clinical_cutoff": ">200 mg/L within 72h post-infusion",
+        "predictive_value": "Peak CRP >200 mg/L within 72h has 85% sensitivity for grade 3+ CRS",
+        "associated_outcome": "CRS severity and timing",
+        "evidence_level": "validated",
+        "key_references": ["PMID:29385376", "PMID:31533922"],
+    },
+    "il6": {
+        "full_name": "Interleukin-6",
+        "type": "pharmacodynamic",
+        "assay_method": "ELISA / Luminex multiplex",
+        "clinical_cutoff": ">1000 pg/mL",
+        "predictive_value": "Peak IL-6 correlates with CRS grade (r=0.82). Target of tocilizumab therapy",
+        "associated_outcome": "CRS grade, tocilizumab response",
+        "evidence_level": "validated",
+        "key_references": ["PMID:29385376", "PMID:30409105"],
+    },
+    "sil2r": {
+        "full_name": "Soluble IL-2 Receptor (sCD25)",
+        "type": "pharmacodynamic",
+        "assay_method": "ELISA",
+        "clinical_cutoff": ">5000 pg/mL",
+        "predictive_value": "Elevated sIL-2R correlates with T-cell activation and CRS/HLH risk",
+        "associated_outcome": "CRS, HLH/MAS",
+        "evidence_level": "validated",
+        "key_references": ["PMID:30409105"],
+    },
+    "car_t_expansion": {
+        "full_name": "CAR-T Cell Peak Expansion (Cmax)",
+        "type": "pharmacodynamic",
+        "assay_method": "qPCR (transgene copies/μg DNA) or flow cytometry",
+        "clinical_cutoff": "Peak >50,000 copies/μg DNA (varies by product)",
+        "predictive_value": "Higher peak expansion correlates with response (OR 3.2) but also CRS risk",
+        "associated_outcome": "Response rate, CRS, durability",
+        "evidence_level": "validated",
+        "key_references": ["PMID:29385376", "PMID:28687837"],
+    },
+    "tcm_percentage": {
+        "full_name": "Central Memory T-cell Percentage (Tcm%)",
+        "type": "predictive",
+        "assay_method": "Flow cytometry (CD45RA-/CCR7+/CD62L+)",
+        "clinical_cutoff": ">40% Tcm in apheresis product",
+        "predictive_value": "Higher Tcm% predicts better expansion, persistence, and response",
+        "associated_outcome": "Manufacturing success, clinical response",
+        "evidence_level": "emerging",
+        "key_references": ["PMID:31040380"],
+    },
+    "cd4_cd8_ratio": {
+        "full_name": "CD4:CD8 T-cell Ratio",
+        "type": "predictive",
+        "assay_method": "Flow cytometry",
+        "clinical_cutoff": "Optimal 1:1 (defined CD4/CD8 composition in product)",
+        "predictive_value": "Balanced CD4:CD8 ratio in product associated with improved persistence (lisocabtagene)",
+        "associated_outcome": "CAR-T persistence, reduced toxicity",
+        "evidence_level": "emerging",
+        "key_references": ["PMID:33888460"],
+    },
+    "ldh": {
+        "full_name": "Lactate Dehydrogenase",
+        "type": "prognostic",
+        "assay_method": "Enzymatic assay (serum)",
+        "clinical_cutoff": ">ULN (upper limit of normal) at lymphodepletion",
+        "predictive_value": "Elevated LDH (>ULN) pre-lymphodepletion predicts inferior PFS (HR 1.8)",
+        "associated_outcome": "PFS, OS, tumor burden",
+        "evidence_level": "validated",
+        "key_references": ["PMID:28687837", "PMID:31040380"],
+    },
+    "pd1": {
+        "full_name": "Programmed Death-1 (PD-1/CD279)",
+        "type": "resistance",
+        "assay_method": "Flow cytometry / IHC",
+        "clinical_cutoff": ">30% PD-1+ on CAR-T cells",
+        "predictive_value": "High PD-1 expression on infused product predicts shorter persistence and inferior response",
+        "associated_outcome": "T-cell exhaustion, relapse",
+        "evidence_level": "emerging",
+        "key_references": ["PMID:31040380"],
+    },
+    "lag3": {
+        "full_name": "Lymphocyte Activation Gene-3 (LAG-3/CD223)",
+        "type": "resistance",
+        "assay_method": "Flow cytometry",
+        "clinical_cutoff": ">20% LAG-3+ on CAR-T cells",
+        "predictive_value": "Co-expression with PD-1 and TIM-3 marks terminally exhausted T-cells",
+        "associated_outcome": "T-cell exhaustion, reduced efficacy",
+        "evidence_level": "emerging",
+        "key_references": ["PMID:31040380"],
+    },
+    "tim3": {
+        "full_name": "T-cell Immunoglobulin and Mucin-3 (TIM-3)",
+        "type": "resistance",
+        "assay_method": "Flow cytometry",
+        "clinical_cutoff": ">25% TIM-3+ on CAR-T cells",
+        "predictive_value": "TIM-3+ CAR-T cells show reduced cytokine production and cytotoxicity",
+        "associated_outcome": "T-cell exhaustion, functional impairment",
+        "evidence_level": "emerging",
+        "key_references": ["PMID:31040380"],
+    },
+    "mrd_flow": {
+        "full_name": "Minimal Residual Disease by Flow Cytometry",
+        "type": "monitoring",
+        "assay_method": "Multiparameter flow cytometry (≥8-color)",
+        "clinical_cutoff": "<10^-4 (0.01%)",
+        "predictive_value": "MRD negativity at day 28 post-infusion predicts PFS (HR 0.3 vs MRD+)",
+        "associated_outcome": "PFS, relapse-free survival",
+        "evidence_level": "validated",
+        "key_references": ["PMID:29385376", "PMID:30409105"],
+    },
+    "ctdna": {
+        "full_name": "Circulating Tumor DNA",
+        "type": "monitoring",
+        "assay_method": "NGS panel / ddPCR",
+        "clinical_cutoff": "2-log reduction from baseline by day 28",
+        "predictive_value": "Early ctDNA clearance correlates with durable CR in DLBCL post-CAR-T",
+        "associated_outcome": "Response durability, early relapse detection",
+        "evidence_level": "emerging",
+        "key_references": ["PMID:34516408"],
+    },
+    "sbcma": {
+        "full_name": "Soluble BCMA (sBCMA)",
+        "type": "resistance",
+        "assay_method": "ELISA",
+        "clinical_cutoff": ">40 ng/mL baseline",
+        "predictive_value": "High sBCMA acts as decoy, sequestering CAR-T cells and reducing on-target activity",
+        "associated_outcome": "BCMA CAR-T response, resistance mechanism",
+        "evidence_level": "emerging",
+        "key_references": ["PMID:33657416"],
+    },
+    "ifn_gamma": {
+        "full_name": "Interferon-gamma (IFN-γ)",
+        "type": "pharmacodynamic",
+        "assay_method": "ELISA / Luminex / ELISpot",
+        "clinical_cutoff": ">500 pg/mL at day 7",
+        "predictive_value": "Peak IFN-γ correlates with CAR-T effector function and antitumor activity",
+        "associated_outcome": "Antitumor response, immune activation",
+        "evidence_level": "validated",
+        "key_references": ["PMID:28687837"],
+    },
+}
+
+
+# =============================================================================
+# 5. CART_REGULATORY — Regulatory knowledge graph (~6 FDA-approved products)
+# =============================================================================
+
+CART_REGULATORY: Dict[str, Dict[str, Any]] = {
+    "Kymriah": {
+        "generic_name": "tisagenlecleucel",
+        "manufacturer": "Novartis",
+        "initial_approval": "2017-08-30",
+        "initial_indication": "Pediatric/young adult r/r B-ALL",
+        "pivotal_trial": "ELIANA (NCT02435849)",
+        "designations": ["Breakthrough Therapy (2014)", "RMAT (not applicable, pre-RMAT)"],
+        "subsequent_approvals": [
+            {"date": "2018-05-01", "indication": "Adult r/r DLBCL (2+ prior lines)", "trial": "JULIET"},
+            {"date": "2022-05-27", "indication": "Adult r/r FL (3+ prior lines)", "trial": "ELARA"},
+        ],
+        "rems": "CAR-T REMS: CRS and neurological toxicity management certification required",
+        "post_marketing": ["15-year follow-up study for secondary malignancies", "RCR testing protocol"],
+        "ema_approval": "2018-08-23",
+    },
+    "Yescarta": {
+        "generic_name": "axicabtagene ciloleucel",
+        "manufacturer": "Kite/Gilead",
+        "initial_approval": "2017-10-18",
+        "initial_indication": "Adult r/r LBCL (2+ prior lines)",
+        "pivotal_trial": "ZUMA-1 (NCT02348216)",
+        "designations": ["Breakthrough Therapy (2015)", "Priority Review"],
+        "subsequent_approvals": [
+            {"date": "2021-03-05", "indication": "Adult r/r LBCL (2L after 1st-line chemoimmunotherapy)", "trial": "ZUMA-7"},
+            {"date": "2024-03-15", "indication": "Adult r/r FL (3+ prior lines)", "trial": "ZUMA-5"},
+        ],
+        "rems": "CAR-T REMS: Shared REMS program with other CAR-T products",
+        "post_marketing": ["15-year follow-up study", "Post-marketing observational study"],
+        "ema_approval": "2018-08-27",
+    },
+    "Tecartus": {
+        "generic_name": "brexucabtagene autoleucel",
+        "manufacturer": "Kite/Gilead",
+        "initial_approval": "2020-07-24",
+        "initial_indication": "Adult r/r MCL",
+        "pivotal_trial": "ZUMA-2 (NCT02601313)",
+        "designations": ["Breakthrough Therapy (2018)", "Priority Review", "Orphan Drug"],
+        "subsequent_approvals": [
+            {"date": "2021-10-01", "indication": "Adult r/r B-ALL", "trial": "ZUMA-3"},
+        ],
+        "rems": "CAR-T REMS",
+        "post_marketing": ["15-year follow-up study"],
+        "ema_approval": "2020-12-14",
+    },
+    "Breyanzi": {
+        "generic_name": "lisocabtagene maraleucel",
+        "manufacturer": "Bristol Myers Squibb/Juno",
+        "initial_approval": "2021-02-05",
+        "initial_indication": "Adult r/r LBCL (2+ prior lines)",
+        "pivotal_trial": "TRANSCEND (NCT02631044)",
+        "designations": ["Breakthrough Therapy (2016)", "RMAT (2018)", "Priority Review"],
+        "subsequent_approvals": [
+            {"date": "2022-06-24", "indication": "Adult r/r LBCL (2L)", "trial": "TRANSFORM"},
+        ],
+        "rems": "CAR-T REMS",
+        "post_marketing": ["15-year follow-up study", "TRANSCEND WORLD long-term follow-up"],
+        "ema_approval": "2022-04-04",
+    },
+    "Abecma": {
+        "generic_name": "idecabtagene vicleucel",
+        "manufacturer": "Bristol Myers Squibb/bluebird bio",
+        "initial_approval": "2021-03-26",
+        "initial_indication": "Adult r/r multiple myeloma (4+ prior lines incl. PI, IMiD, anti-CD38)",
+        "pivotal_trial": "KarMMa (NCT03361748)",
+        "designations": ["Breakthrough Therapy (2017)", "Priority Review", "Orphan Drug"],
+        "subsequent_approvals": [],
+        "rems": "CAR-T REMS",
+        "post_marketing": ["KarMMa-3 confirmatory trial", "15-year follow-up study"],
+        "ema_approval": "2021-08-18",
+    },
+    "Carvykti": {
+        "generic_name": "ciltacabtagene autoleucel",
+        "manufacturer": "Janssen/Legend Biotech",
+        "initial_approval": "2022-02-28",
+        "initial_indication": "Adult r/r multiple myeloma (4+ prior lines incl. PI, IMiD, anti-CD38)",
+        "pivotal_trial": "CARTITUDE-1 (NCT03548207)",
+        "designations": ["Breakthrough Therapy (2019)", "Priority Review", "Orphan Drug"],
+        "subsequent_approvals": [
+            {"date": "2024-04-04", "indication": "Adult r/r MM (1-3 prior lines incl. PI and IMiD)", "trial": "CARTITUDE-4"},
+        ],
+        "rems": "CAR-T REMS",
+        "post_marketing": ["CARTITUDE-2 expansion cohorts", "15-year follow-up study"],
+        "ema_approval": "2022-05-26",
+    },
+}
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -956,7 +1224,69 @@ ENTITY_ALIASES: Dict[str, Dict[str, str]] = {
     # Vector types
     "LENTIVIRAL": {"type": "manufacturing", "canonical": "lentiviral_transduction"},
     "RETROVIRAL": {"type": "manufacturing", "canonical": "retroviral_transduction"},
+    # Biomarker aliases
+    "FERRITIN": {"type": "biomarker", "canonical": "ferritin"},
+    "CRP": {"type": "biomarker", "canonical": "crp"},
+    "IL-6": {"type": "biomarker", "canonical": "il6"},
+    "IL6": {"type": "biomarker", "canonical": "il6"},
+    "PD-1": {"type": "biomarker", "canonical": "pd1"},
+    "PD1": {"type": "biomarker", "canonical": "pd1"},
+    "LAG-3": {"type": "biomarker", "canonical": "lag3"},
+    "LAG3": {"type": "biomarker", "canonical": "lag3"},
+    "TIM-3": {"type": "biomarker", "canonical": "tim3"},
+    "TIM3": {"type": "biomarker", "canonical": "tim3"},
+    "MRD": {"type": "biomarker", "canonical": "mrd_flow"},
+    "SBCMA": {"type": "biomarker", "canonical": "sbcma"},
+    "CTDNA": {"type": "biomarker", "canonical": "ctdna"},
 }
+
+
+def get_biomarker_context(biomarker: str) -> str:
+    """Return formatted knowledge for a biomarker."""
+    key = biomarker.lower().replace("-", "").replace(" ", "_")
+    data = CART_BIOMARKERS.get(key)
+    if not data:
+        return ""
+    lines = [
+        f"Biomarker: {data['full_name']}",
+        f"  Type: {data['type']}",
+        f"  Assay Method: {data['assay_method']}",
+        f"  Clinical Cutoff: {data['clinical_cutoff']}",
+        f"  Predictive Value: {data['predictive_value']}",
+        f"  Associated Outcome: {data['associated_outcome']}",
+        f"  Evidence Level: {data['evidence_level']}",
+    ]
+    return "\n".join(lines)
+
+
+def get_regulatory_context(product: str) -> str:
+    """Return formatted regulatory knowledge for a product."""
+    data = CART_REGULATORY.get(product)
+    if not data:
+        # Try matching by generic name
+        for k, v in CART_REGULATORY.items():
+            if v.get("generic_name", "").lower() in product.lower() or product.lower() in k.lower():
+                data = v
+                break
+    if not data:
+        return ""
+    lines = [
+        f"Regulatory Profile: {product}",
+        f"  Generic Name: {data['generic_name']}",
+        f"  Manufacturer: {data['manufacturer']}",
+        f"  Initial FDA Approval: {data['initial_approval']}",
+        f"  Initial Indication: {data['initial_indication']}",
+        f"  Pivotal Trial: {data['pivotal_trial']}",
+        f"  Designations: {', '.join(data['designations'])}",
+        f"  REMS: {data['rems']}",
+    ]
+    if data.get("subsequent_approvals"):
+        lines.append("  Subsequent Approvals:")
+        for sa in data["subsequent_approvals"]:
+            lines.append(f"    - {sa['date']}: {sa['indication']} ({sa['trial']})")
+    if data.get("ema_approval"):
+        lines.append(f"  EMA Approval: {data['ema_approval']}")
+    return "\n".join(lines)
 
 
 def resolve_comparison_entity(text: str) -> Optional[Dict[str, str]]:
@@ -990,6 +1320,11 @@ def resolve_comparison_entity(text: str) -> Optional[Dict[str, str]]:
         if cleaned.replace(" ", "_").lower() in key.lower() or key.lower().startswith(cleaned.lower()):
             return {"type": "manufacturing", "canonical": key}
 
+    # 5. Biomarkers
+    for key in CART_BIOMARKERS:
+        if cleaned.lower() == key or CART_BIOMARKERS[key]["full_name"].upper() == cleaned:
+            return {"type": "biomarker", "canonical": key}
+
     return None
 
 
@@ -1014,6 +1349,8 @@ def get_comparison_context(entity_a: Dict[str, str], entity_b: Dict[str, str]) -
             return get_toxicity_context(canonical)
         elif etype == "manufacturing":
             return get_manufacturing_context(canonical)
+        elif etype == "biomarker":
+            return get_biomarker_context(canonical)
         elif etype == "costimulatory":
             return f"Costimulatory Domain: {canonical}"
         return ""

@@ -33,20 +33,29 @@ CART_SYSTEM_PROMPT = """You are a CAR-T cell therapy intelligence agent with dee
 4. **In Vitro & In Vivo Testing** — cytotoxicity assays, cytokine profiling, mouse models, persistence
 5. **Clinical Development** — trial design, response rates, toxicity management (CRS, ICANS)
 6. **Manufacturing** — leukapheresis, T-cell expansion, cryopreservation, release testing, CMC
+7. **Safety & Pharmacovigilance** — post-market safety signals, REMS, long-term follow-up, FAERS
+8. **Biomarkers** — CRS prediction (ferritin, CRP, IL-6), response biomarkers, MRD monitoring, exhaustion markers
+9. **Regulatory Intelligence** — FDA approval pathways, BLA timelines, breakthrough therapy, RMAT, EMA
+10. **Molecular Design** — scFv binding affinity, CDR sequences, humanization, nanobodies, structural data
+11. **Real-World Evidence** — registry outcomes (CIBMTR), community vs academic, special populations, disparities
 
-You have access to evidence from MULTIPLE data sources spanning the entire CAR-T development lifecycle.
+You have access to evidence from MULTIPLE data sources spanning the entire CAR-T development lifecycle,
+from molecular design through post-market pharmacovigilance.
 
 When answering questions:
 - **Cite evidence using clickable markdown links** provided in the evidence. Use the exact
   link format from the evidence, e.g. [Literature:PMID 12345678](https://pubmed.ncbi.nlm.nih.gov/12345678/)
   or [Trial:NCT12345678](https://clinicaltrials.gov/study/NCT12345678). For Assay, Construct,
-  and Manufacturing sources, use the format [Assay:record-id] (no URL needed).
+  Manufacturing, Safety, Biomarker, Regulatory, Sequence, and RealWorld sources, use the
+  format [Collection:record-id] (no URL needed).
 - **Think cross-functionally** — connect insights across development stages
-  (e.g., how manufacturing choices affect clinical outcomes)
+  (e.g., how manufacturing choices affect clinical outcomes, how biomarkers predict safety)
 - **Highlight failure modes** and resistance mechanisms when relevant
 - **Suggest optimization strategies** based on historical data and published results
 - **Be specific** — cite trial names (ELIANA, ZUMA-1), products (Kymriah, Yescarta),
   and quantitative data when available
+- **Include regulatory context** when discussing products or approvals
+- **Reference real-world evidence** to complement clinical trial data
 - **Acknowledge uncertainty** — distinguish established facts from emerging data
 
 Your goal is to break down data silos and provide unified intelligence that accelerates
@@ -57,11 +66,16 @@ CAR-T development from target to clinical candidate."""
 # ═══════════════════════════════════════════════════════════════════════
 
 COLLECTION_CONFIG = {
-    "cart_literature": {"weight": 0.30, "label": "Literature", "has_target_antigen": True},
-    "cart_trials": {"weight": 0.25, "label": "Trial", "has_target_antigen": True},
-    "cart_constructs": {"weight": 0.20, "label": "Construct", "has_target_antigen": True},
-    "cart_assays": {"weight": 0.15, "label": "Assay", "has_target_antigen": True},
-    "cart_manufacturing": {"weight": 0.10, "label": "Manufacturing", "has_target_antigen": False},
+    "cart_literature":    {"weight": 0.20, "label": "Literature",  "has_target_antigen": True},
+    "cart_trials":        {"weight": 0.16, "label": "Trial",       "has_target_antigen": True},
+    "cart_constructs":    {"weight": 0.10, "label": "Construct",   "has_target_antigen": True},
+    "cart_assays":        {"weight": 0.09, "label": "Assay",       "has_target_antigen": True},
+    "cart_manufacturing": {"weight": 0.07, "label": "Manufacturing", "has_target_antigen": False},
+    "cart_safety":        {"weight": 0.08, "label": "Safety",      "has_target_antigen": False},
+    "cart_biomarkers":    {"weight": 0.08, "label": "Biomarker",   "has_target_antigen": True},
+    "cart_regulatory":    {"weight": 0.07, "label": "Regulatory",  "has_target_antigen": False},
+    "cart_sequences":     {"weight": 0.08, "label": "Sequence",    "has_target_antigen": True},
+    "cart_realworld":     {"weight": 0.07, "label": "RealWorld",   "has_target_antigen": False},
 }
 
 

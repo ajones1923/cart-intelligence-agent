@@ -839,6 +839,237 @@ CONSTRUCT_EXPANSION: Dict[str, List[str]] = {
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# 7. SAFETY_EXPANSION
+# ═══════════════════════════════════════════════════════════════════════
+
+SAFETY_EXPANSION: Dict[str, List[str]] = {
+    "adverse event": [
+        "adverse event", "AE", "safety signal", "toxicity", "side effect",
+        "post-market", "pharmacovigilance", "FAERS", "label update",
+    ],
+    "pharmacovigilance": [
+        "pharmacovigilance", "post-market surveillance", "FAERS", "safety monitoring",
+        "adverse event reporting", "label change", "boxed warning", "REMS",
+    ],
+    "rems": [
+        "REMS", "risk evaluation", "mitigation strategy", "certification",
+        "treatment center", "safety protocol", "CRS management", "ICANS management",
+    ],
+    "secondary malignancy": [
+        "secondary malignancy", "T-cell lymphoma", "MDS", "AML",
+        "insertional mutagenesis", "oncogenesis", "long-term safety",
+        "FDA boxed warning", "15-year follow-up",
+    ],
+    "long-term safety": [
+        "long-term safety", "prolonged cytopenia", "B-cell aplasia",
+        "hypogammaglobulinemia", "IVIG", "immunoglobulin replacement",
+        "late-onset", "delayed toxicity", "chronic GVHD",
+    ],
+    "cytopenia": [
+        "cytopenia", "neutropenia", "thrombocytopenia", "anemia",
+        "pancytopenia", "prolonged cytopenia", "bone marrow suppression",
+        "G-CSF", "platelet transfusion",
+    ],
+    "infection": [
+        "infection", "opportunistic infection", "bacterial", "fungal",
+        "viral reactivation", "CMV", "HHV-6", "aspergillus",
+        "hypogammaglobulinemia", "immunodeficiency",
+    ],
+    "cardiac": [
+        "cardiac toxicity", "cardiomyopathy", "arrhythmia", "troponin",
+        "heart failure", "cardiac arrest", "myocarditis",
+    ],
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 8. BIOMARKER_EXPANSION
+# ═══════════════════════════════════════════════════════════════════════
+
+BIOMARKER_EXPANSION: Dict[str, List[str]] = {
+    "biomarker": [
+        "biomarker", "predictive marker", "prognostic marker",
+        "pharmacodynamic", "response prediction", "outcome prediction",
+    ],
+    "ferritin": [
+        "ferritin", "serum ferritin", "CRS prediction",
+        "inflammatory marker", "iron storage", "hyperferritinemia",
+    ],
+    "crp": [
+        "CRP", "C-reactive protein", "inflammatory biomarker",
+        "acute phase", "CRS monitoring",
+    ],
+    "il-6": [
+        "IL-6", "interleukin-6", "cytokine storm", "tocilizumab target",
+        "CRS biomarker", "inflammatory cytokine",
+    ],
+    "mrd": [
+        "MRD", "minimal residual disease", "flow cytometry MRD",
+        "PCR MRD", "measurable residual disease", "MRD negative",
+        "deep response", "molecular remission",
+    ],
+    "car expansion": [
+        "CAR-T expansion", "peak expansion", "Cmax", "transgene copies",
+        "qPCR", "in vivo proliferation", "pharmacokinetics",
+    ],
+    "exhaustion marker": [
+        "exhaustion", "PD-1", "LAG-3", "TIM-3", "TOX", "NR4A",
+        "T-cell dysfunction", "checkpoint", "terminal differentiation",
+        "epigenetic exhaustion",
+    ],
+    "ldh": [
+        "LDH", "lactate dehydrogenase", "tumor burden marker",
+        "prognostic factor", "metabolic marker",
+    ],
+    "ctdna": [
+        "ctDNA", "circulating tumor DNA", "liquid biopsy",
+        "cell-free DNA", "molecular response", "genomic profiling",
+    ],
+    "sbcma": [
+        "sBCMA", "soluble BCMA", "BCMA shedding",
+        "gamma-secretase", "decoy antigen", "BCMA resistance",
+    ],
+    "tcm": [
+        "Tcm", "central memory", "CD45RA-", "CCR7+", "CD62L+",
+        "T-cell fitness", "memory phenotype", "naive T-cell",
+    ],
+    "cd4 cd8": [
+        "CD4:CD8", "CD4/CD8 ratio", "T-cell composition",
+        "defined composition", "product phenotype",
+    ],
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 9. REGULATORY_EXPANSION
+# ═══════════════════════════════════════════════════════════════════════
+
+REGULATORY_EXPANSION: Dict[str, List[str]] = {
+    "fda": [
+        "FDA", "Food and Drug Administration", "regulatory",
+        "BLA", "biologics license", "approval", "label",
+    ],
+    "bla": [
+        "BLA", "biologics license application", "regulatory submission",
+        "NDA", "marketing authorization", "approval pathway",
+    ],
+    "breakthrough": [
+        "breakthrough therapy", "BTD", "expedited program",
+        "accelerated development", "FDA designation",
+    ],
+    "rmat": [
+        "RMAT", "regenerative medicine advanced therapy",
+        "cell therapy designation", "expedited approval",
+    ],
+    "accelerated approval": [
+        "accelerated approval", "surrogate endpoint",
+        "confirmatory trial", "conditional approval", "full approval",
+    ],
+    "ema": [
+        "EMA", "European Medicines Agency", "CHMP",
+        "marketing authorization", "conditional approval", "EU approval",
+    ],
+    "label update": [
+        "label update", "prescribing information", "boxed warning",
+        "black box warning", "safety communication", "Dear Doctor letter",
+    ],
+    "post-marketing": [
+        "post-marketing", "Phase 4", "post-approval",
+        "registry study", "long-term follow-up", "PMR", "PMC",
+    ],
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 10. SEQUENCE_EXPANSION
+# ═══════════════════════════════════════════════════════════════════════
+
+SEQUENCE_EXPANSION: Dict[str, List[str]] = {
+    "scfv": [
+        "scFv", "single-chain variable fragment", "antibody fragment",
+        "VH", "VL", "linker", "binding domain",
+    ],
+    "cdr": [
+        "CDR", "complementarity determining region", "CDR3",
+        "hypervariable region", "antigen binding loop", "paratope",
+    ],
+    "binding affinity": [
+        "binding affinity", "Kd", "dissociation constant",
+        "kon", "koff", "SPR", "BLI", "affinity maturation",
+    ],
+    "humanization": [
+        "humanization", "humanized antibody", "CDR grafting",
+        "framework", "deimmunization", "anti-drug antibody", "ADA",
+        "immunogenicity",
+    ],
+    "fmc63": [
+        "FMC63", "anti-CD19 scFv", "murine origin",
+        "tisagenlecleucel binder", "axicabtagene binder",
+    ],
+    "nanobody": [
+        "nanobody", "VHH", "single-domain antibody", "camelid",
+        "llama antibody", "sdAb", "LCAR-B38M",
+    ],
+    "darpin": [
+        "DARPin", "designed ankyrin repeat", "non-antibody scaffold",
+        "Centyrin", "fibronectin", "alternative binding domain",
+    ],
+    "bispecific car": [
+        "bispecific CAR", "tandem CAR", "dual-targeting",
+        "bicistronic", "loop CAR", "CD19/CD22", "OR-gate",
+    ],
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 11. REALWORLD_EXPANSION
+# ═══════════════════════════════════════════════════════════════════════
+
+REALWORLD_EXPANSION: Dict[str, List[str]] = {
+    "real-world": [
+        "real-world", "RWE", "real-world evidence", "real-world data",
+        "clinical practice", "commercial experience", "post-approval",
+    ],
+    "cibmtr": [
+        "CIBMTR", "Center for International Blood and Marrow Transplant Research",
+        "transplant registry", "national registry",
+    ],
+    "registry": [
+        "registry", "CIBMTR", "EBMT", "DESCAR-T", "observational study",
+        "national registry", "multi-center registry",
+    ],
+    "community": [
+        "community center", "community practice", "non-academic",
+        "community oncology", "access to care", "referral pattern",
+    ],
+    "academic": [
+        "academic center", "academic medical center", "tertiary center",
+        "CAR-T center of excellence", "FACT accredited",
+    ],
+    "elderly": [
+        "elderly", "older adults", "geriatric", "age ≥65",
+        "age ≥70", "frailty", "comorbidities", "fitness",
+    ],
+    "bridging therapy": [
+        "bridging therapy", "bridging chemotherapy", "bridging radiation",
+        "pre-CAR-T", "disease control", "tumor debulking",
+    ],
+    "disparities": [
+        "disparities", "racial", "ethnic", "socioeconomic",
+        "access", "underserved", "minority", "equity",
+    ],
+    "resource utilization": [
+        "resource utilization", "ICU admission", "readmission",
+        "length of stay", "cost", "healthcare economics", "HCRU",
+    ],
+    "long-term follow-up": [
+        "long-term follow-up", "durability", "late relapse",
+        "5-year", "3-year", "sustained remission", "cure",
+    ],
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # ALL EXPANSION MAPS — ordered list for iteration
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -849,6 +1080,11 @@ ALL_EXPANSION_MAPS: List[tuple] = [
     ("Manufacturing", MANUFACTURING_EXPANSION),
     ("Mechanism", MECHANISM_EXPANSION),
     ("Construct", CONSTRUCT_EXPANSION),
+    ("Safety", SAFETY_EXPANSION),
+    ("Biomarker", BIOMARKER_EXPANSION),
+    ("Regulatory", REGULATORY_EXPANSION),
+    ("Sequence", SEQUENCE_EXPANSION),
+    ("RealWorld", REALWORLD_EXPANSION),
 ]
 
 
