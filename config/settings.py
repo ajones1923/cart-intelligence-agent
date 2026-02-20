@@ -47,18 +47,18 @@ class CARTSettings(BaseSettings):
 
     # ── LLM ──
     LLM_PROVIDER: str = "anthropic"
-    LLM_MODEL: str = "claude-sonnet-4-20250514"
+    LLM_MODEL: str = "claude-sonnet-4-6"
     ANTHROPIC_API_KEY: Optional[str] = None
 
     # ── RAG Search ──
     TOP_K_PER_COLLECTION: int = 5
     SCORE_THRESHOLD: float = 0.4
 
-    # Collection search weights (must sum to 1.0)
-    WEIGHT_LITERATURE: float = 0.30
-    WEIGHT_TRIALS: float = 0.25
-    WEIGHT_CONSTRUCTS: float = 0.20
-    WEIGHT_ASSAYS: float = 0.15
+    # Collection search weights (must sum to ~1.0)
+    WEIGHT_LITERATURE: float = 0.20
+    WEIGHT_TRIALS: float = 0.16
+    WEIGHT_CONSTRUCTS: float = 0.10
+    WEIGHT_ASSAYS: float = 0.09
     WEIGHT_MANUFACTURING: float = 0.07
     WEIGHT_SAFETY: float = 0.08
     WEIGHT_BIOMARKERS: float = 0.08
@@ -72,6 +72,27 @@ class CARTSettings(BaseSettings):
 
     # ── ClinicalTrials.gov ──
     CT_GOV_BASE_URL: str = "https://clinicaltrials.gov/api/v2"
+
+    # ── API Server ──
+    API_HOST: str = "0.0.0.0"
+    API_PORT: int = 8522
+
+    # ── Streamlit ──
+    STREAMLIT_PORT: int = 8521
+
+    # ── Prometheus Metrics ──
+    METRICS_ENABLED: bool = True
+
+    # ── Scheduler ──
+    INGEST_SCHEDULE_HOURS: int = 168  # Weekly (7 * 24)
+    INGEST_ENABLED: bool = False
+
+    # ── Conversation Memory ──
+    MAX_CONVERSATION_CONTEXT: int = 3  # Number of prior exchanges to inject
+
+    # ── Citation Scoring ──
+    CITATION_HIGH_THRESHOLD: float = 0.75
+    CITATION_MEDIUM_THRESHOLD: float = 0.60
 
     model_config = {"env_prefix": "CART_", "env_file": ".env"}
 

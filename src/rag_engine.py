@@ -1,8 +1,8 @@
 """Multi-collection RAG engine for CAR-T Intelligence Agent.
 
-The core innovation: search across ALL 6 collections simultaneously
-(existing genomic_evidence + 5 new CAR-T collections), then synthesize
-findings with knowledge graph augmentation.
+Searches across all 10 collections simultaneously using parallel ThreadPoolExecutor,
+synthesizes findings with full knowledge graph augmentation (targets, toxicities,
+manufacturing, biomarkers, regulatory), and generates grounded LLM responses.
 
 Extends the pattern from: rag-chat-pipeline/src/rag_engine.py
 
@@ -10,10 +10,11 @@ Author: Adam Jones
 Date: February 2026
 """
 
-import sys
+import re
 import time
-from pathlib import Path
 from typing import Dict, Generator, List, Optional
+
+from config.settings import settings
 
 from .models import (
     AgentQuery,
@@ -62,45 +63,54 @@ Your goal is to break down data silos and provide unified intelligence that acce
 CAR-T development from target to clinical candidate."""
 
 # ═══════════════════════════════════════════════════════════════════════
-# COLLECTION CONFIGURATION
+# COLLECTION CONFIGURATION (reads weights from settings)
 # ═══════════════════════════════════════════════════════════════════════
 
 COLLECTION_CONFIG = {
-    "cart_literature":    {"weight": 0.20, "label": "Literature",  "has_target_antigen": True},
-    "cart_trials":        {"weight": 0.16, "label": "Trial",       "has_target_antigen": True},
-    "cart_constructs":    {"weight": 0.10, "label": "Construct",   "has_target_antigen": True},
-    "cart_assays":        {"weight": 0.09, "label": "Assay",       "has_target_antigen": True},
-    "cart_manufacturing": {"weight": 0.07, "label": "Manufacturing", "has_target_antigen": False},
-    "cart_safety":        {"weight": 0.08, "label": "Safety",      "has_target_antigen": False},
-    "cart_biomarkers":    {"weight": 0.08, "label": "Biomarker",   "has_target_antigen": True},
-    "cart_regulatory":    {"weight": 0.07, "label": "Regulatory",  "has_target_antigen": False},
-    "cart_sequences":     {"weight": 0.08, "label": "Sequence",    "has_target_antigen": True},
-    "cart_realworld":     {"weight": 0.07, "label": "RealWorld",   "has_target_antigen": False},
+    "cart_literature":    {"weight": settings.WEIGHT_LITERATURE,    "label": "Literature",     "has_target_antigen": True,  "year_field": "year"},
+    "cart_trials":        {"weight": settings.WEIGHT_TRIALS,        "label": "Trial",          "has_target_antigen": True,  "year_field": "start_year"},
+    "cart_constructs":    {"weight": settings.WEIGHT_CONSTRUCTS,    "label": "Construct",      "has_target_antigen": True,  "year_field": None},
+    "cart_assays":        {"weight": settings.WEIGHT_ASSAYS,        "label": "Assay",          "has_target_antigen": True,  "year_field": None},
+    "cart_manufacturing": {"weight": settings.WEIGHT_MANUFACTURING, "label": "Manufacturing",  "has_target_antigen": False, "year_field": None},
+    "cart_safety":        {"weight": settings.WEIGHT_SAFETY,        "label": "Safety",         "has_target_antigen": False, "year_field": "year"},
+    "cart_biomarkers":    {"weight": settings.WEIGHT_BIOMARKERS,    "label": "Biomarker",      "has_target_antigen": True,  "year_field": None},
+    "cart_regulatory":    {"weight": settings.WEIGHT_REGULATORY,    "label": "Regulatory",     "has_target_antigen": False, "year_field": None},
+    "cart_sequences":     {"weight": settings.WEIGHT_SEQUENCES,     "label": "Sequence",       "has_target_antigen": True,  "year_field": None},
+    "cart_realworld":     {"weight": settings.WEIGHT_REALWORLD,     "label": "RealWorld",      "has_target_antigen": False, "year_field": None},
+}
+
+# Known target antigens for expansion term classification
+_KNOWN_ANTIGENS = {
+    "CD19", "BCMA", "CD22", "CD20", "CD30", "CD33", "CD38", "CD123",
+    "GD2", "HER2", "GPC3", "EGFR", "EGFRVIII", "MESOTHELIN",
+    "CLAUDIN18.2", "MUC1", "PSMA", "ROR1", "CD7", "GPRC5D",
+    "FLT3", "CD70", "DLL3", "NY-ESO-1", "B7-H3", "NKG2D",
+    "IL13RA2", "CD5",
 }
 
 
 class CARTRAGEngine:
     """Multi-collection RAG engine for CAR-T cross-functional queries.
 
-    Searches across all CAR-T collections simultaneously, merges results
-    with knowledge graph context, and generates grounded LLM responses.
+    Searches across all CAR-T collections simultaneously using parallel
+    ThreadPoolExecutor, merges results with knowledge graph context, and
+    generates grounded LLM responses.
 
-    Usage:
-        engine = CARTRAGEngine(collection_manager, embedder, llm_client)
-        response = engine.query("Why do CD19 CAR-T therapies fail?")
+    Improvements in v2.0:
+    - Parallel search via ThreadPoolExecutor (was sequential)
+    - Settings-driven weights and parameters (was hardcoded)
+    - Full knowledge graph augmentation (targets, toxicities, manufacturing,
+      biomarkers, regulatory — was targets + toxicities only)
+    - Fixed query expansion (semantic search, not field-filter)
+    - Citation relevance scoring (high/medium/low)
+    - Temporal date-range filtering
+    - Collection selection filtering
+    - Cross-collection entity linking
+    - Conversation memory context injection
     """
 
     def __init__(self, collection_manager, embedder, llm_client,
                  knowledge=None, query_expander=None):
-        """Initialize the RAG engine.
-
-        Args:
-            collection_manager: CARTCollectionManager instance (from collections.py)
-            embedder: EvidenceEmbedder instance (from rag-chat-pipeline/src/embedder.py)
-            llm_client: LLM client instance (from rag-chat-pipeline/src/llm_client.py)
-            knowledge: Knowledge graph module (from knowledge.py)
-            query_expander: Query expansion module (from query_expansion.py)
-        """
         self.collections = collection_manager
         self.embedder = embedder
         self.llm = llm_client
@@ -108,56 +118,67 @@ class CARTRAGEngine:
         self.expander = query_expander
 
     def retrieve(self, query: AgentQuery,
-                 top_k_per_collection: int = 5) -> CrossCollectionResult:
-        """Retrieve evidence from all collections for a query.
-
-        1. Embed the query with BGE instruction prefix
-        2. Search each collection in parallel
-        3. Apply query expansion for additional coverage
-        4. Merge, deduplicate, and rank results
-        5. Augment with knowledge graph context
+                 top_k_per_collection: int = None,
+                 collections_filter: List[str] = None,
+                 year_min: int = None,
+                 year_max: int = None,
+                 conversation_context: str = None) -> CrossCollectionResult:
+        """Retrieve evidence from collections for a query.
 
         Args:
             query: The agent query with question and optional filters
-            top_k_per_collection: Max results per collection
-
-        Returns:
-            CrossCollectionResult with merged hits and knowledge context
+            top_k_per_collection: Max results per collection (default from settings)
+            collections_filter: Optional list of collection names to search
+            year_min: Optional minimum year filter
+            year_max: Optional maximum year filter
+            conversation_context: Optional prior conversation context for follow-ups
         """
+        top_k = top_k_per_collection or settings.TOP_K_PER_COLLECTION
         start = time.time()
 
-        # Step 1: Embed query with BGE instruction prefix
-        query_embedding = self._embed_query(query.question)
+        # Optionally prepend conversation context for follow-up queries
+        search_text = query.question
+        if conversation_context:
+            search_text = f"{conversation_context}\n\nCurrent question: {query.question}"
 
-        # Step 2: Determine which collections to search
-        collections_to_search = list(COLLECTION_CONFIG.keys())
+        # Step 1: Embed query
+        query_embedding = self._embed_query(search_text)
 
-        # Step 3: Build collection-specific filters (only for collections with target_antigen field)
+        # Step 2: Determine collections to search
+        collections_to_search = collections_filter or list(COLLECTION_CONFIG.keys())
+
+        # Step 3: Build per-collection filters
         filter_exprs = {}
-        if query.target_antigen:
-            for coll in collections_to_search:
-                if COLLECTION_CONFIG.get(coll, {}).get("has_target_antigen", False):
-                    filter_exprs[coll] = (
-                        f'target_antigen == "{query.target_antigen}"'
-                    )
+        for coll in collections_to_search:
+            parts = []
+            cfg = COLLECTION_CONFIG.get(coll, {})
+            if query.target_antigen and cfg.get("has_target_antigen"):
+                parts.append(f'target_antigen == "{query.target_antigen}"')
+            year_field = cfg.get("year_field")
+            if year_field:
+                if year_min:
+                    parts.append(f'{year_field} >= {year_min}')
+                if year_max:
+                    parts.append(f'{year_field} <= {year_max}')
+            if parts:
+                filter_exprs[coll] = " and ".join(parts)
 
-        # Step 4: Search all collections
+        # Step 4: Parallel search across all collections
         all_hits = self._search_all_collections(
-            query_embedding, collections_to_search,
-            top_k_per_collection, filter_exprs,
+            query_embedding, collections_to_search, top_k, filter_exprs,
         )
 
-        # Step 5: Query expansion for additional coverage
+        # Step 5: Query expansion (semantic search, not field-filter)
         if self.expander:
             expanded_hits = self._expanded_search(
-                query.question, query_embedding, collections_to_search,
+                query.question, query_embedding, collections_to_search, top_k,
             )
             all_hits.extend(expanded_hits)
 
-        # Step 6: Deduplicate and rank
+        # Step 6: Deduplicate, score citations, rank
         hits = self._merge_and_rank(all_hits)
 
-        # Step 7: Knowledge graph augmentation
+        # Step 7: Full knowledge graph augmentation
         knowledge_context = ""
         if self.knowledge:
             knowledge_context = self._get_knowledge_context(query.question)
@@ -173,19 +194,10 @@ class CARTRAGEngine:
         )
 
     def query(self, question: str, **kwargs) -> str:
-        """Full RAG query: retrieve evidence + generate LLM response.
-
-        Args:
-            question: Natural language question
-            **kwargs: Additional AgentQuery fields
-
-        Returns:
-            LLM-generated answer grounded in evidence
-        """
+        """Full RAG query: retrieve evidence + generate LLM response."""
         agent_query = AgentQuery(question=question, **kwargs)
         evidence = self.retrieve(agent_query)
         prompt = self._build_prompt(agent_query.question, evidence)
-
         return self.llm.generate(
             prompt=prompt,
             system_prompt=CART_SYSTEM_PROMPT,
@@ -195,21 +207,13 @@ class CARTRAGEngine:
 
     def query_stream(self, question: str,
                      **kwargs) -> Generator[Dict, None, None]:
-        """Streaming RAG query — yields evidence then token chunks.
-
-        Yields:
-            {"type": "evidence", "content": CrossCollectionResult}
-            {"type": "token", "content": str}
-            {"type": "done", "content": str}  # full answer
-        """
+        """Streaming RAG query — yields evidence then token chunks."""
         agent_query = AgentQuery(question=question, **kwargs)
         evidence = self.retrieve(agent_query)
-
         yield {"type": "evidence", "content": evidence}
 
         prompt = self._build_prompt(agent_query.question, evidence)
         full_answer = ""
-
         for token in self.llm.generate_stream(
             prompt=prompt,
             system_prompt=CART_SYSTEM_PROMPT,
@@ -218,17 +222,49 @@ class CARTRAGEngine:
         ):
             full_answer += token
             yield {"type": "token", "content": token}
-
         yield {"type": "done", "content": full_answer}
+
+    # ── Cross-Collection Entity Linking ─────────────────────────────
+
+    def find_related(self, entity: str, top_k: int = 5) -> Dict[str, List[SearchHit]]:
+        """Find all evidence related to an entity across all 10 collections.
+
+        Enables "show me everything about Yescarta" spanning all collections.
+
+        Args:
+            entity: Product name, target antigen, trial ID, etc.
+            top_k: Max results per collection
+
+        Returns:
+            Dict of collection_name -> List[SearchHit]
+        """
+        embedding = self._embed_query(entity)
+        results = {}
+
+        all_results = self.collections.search_all(
+            embedding, top_k_per_collection=top_k,
+            score_threshold=settings.SCORE_THRESHOLD,
+        )
+        for coll_name, hits in all_results.items():
+            label = COLLECTION_CONFIG.get(coll_name, {}).get("label", coll_name)
+            search_hits = []
+            for r in hits:
+                hit = SearchHit(
+                    collection=label,
+                    id=r.get("id", ""),
+                    score=r.get("score", 0.0),
+                    text=r.get("text_summary", r.get("text_chunk", "")),
+                    metadata=r,
+                )
+                search_hits.append(hit)
+            if search_hits:
+                results[coll_name] = search_hits
+        return results
 
     # ── Private Methods ──────────────────────────────────────────────
 
     def _embed_query(self, text: str):
-        """Embed query text with BGE instruction prefix.
-
-        CRITICAL: BGE-small-en-v1.5 uses asymmetric encoding.
-        Queries MUST be prefixed for optimal retrieval.
-        """
+        """Embed query text with BGE instruction prefix."""
         prefix = "Represent this sentence for searching relevant passages: "
         return self.embedder.embed_text(prefix + text)
 
@@ -236,41 +272,59 @@ class CARTRAGEngine:
         self, query_embedding, collections: List[str],
         top_k: int, filter_exprs: Dict[str, str],
     ) -> List[SearchHit]:
-        """Search all specified collections and collect hits."""
+        """Search all collections in parallel via ThreadPoolExecutor."""
         all_hits = []
 
-        for coll_name in collections:
-            filter_expr = filter_exprs.get(coll_name)
-            try:
-                results = self.collections.search(
-                    coll_name, query_embedding, top_k, filter_expr,
-                )
-                weight = COLLECTION_CONFIG.get(
-                    coll_name, {}
-                ).get("weight", 0.1)
-                label = COLLECTION_CONFIG.get(
-                    coll_name, {}
-                ).get("label", coll_name)
+        # Use the parallel search_all method from CARTCollectionManager
+        parallel_results = self.collections.search_all(
+            query_embedding,
+            top_k_per_collection=top_k,
+            filter_exprs=filter_exprs,
+            score_threshold=settings.SCORE_THRESHOLD,
+        )
 
-                for r in results:
-                    hit = SearchHit(
-                        collection=label,
-                        id=r.get("id", ""),
-                        score=r.get("score", 0.0) * (1 + weight),
-                        text=r.get("text_summary", r.get("text_chunk", "")),
-                        metadata=r,
-                    )
-                    all_hits.append(hit)
-            except Exception:
-                pass  # Collection may not exist yet
+        for coll_name, results in parallel_results.items():
+            if coll_name not in [c for c in collections]:
+                continue
+            cfg = COLLECTION_CONFIG.get(coll_name, {})
+            weight = cfg.get("weight", 0.1)
+            label = cfg.get("label", coll_name)
+
+            for r in results:
+                raw_score = r.get("score", 0.0)
+                weighted_score = raw_score * (1 + weight)
+
+                # Citation relevance scoring
+                if raw_score >= settings.CITATION_HIGH_THRESHOLD:
+                    relevance = "high"
+                elif raw_score >= settings.CITATION_MEDIUM_THRESHOLD:
+                    relevance = "medium"
+                else:
+                    relevance = "low"
+
+                metadata = dict(r)
+                metadata["relevance"] = relevance
+
+                hit = SearchHit(
+                    collection=label,
+                    id=r.get("id", ""),
+                    score=weighted_score,
+                    text=r.get("text_summary", r.get("text_chunk", "")),
+                    metadata=metadata,
+                )
+                all_hits.append(hit)
 
         return all_hits
 
     def _expanded_search(
         self, query: str, query_embedding,
-        collections: List[str],
+        collections: List[str], top_k: int,
     ) -> List[SearchHit]:
-        """Use query expansion to find additional relevant results."""
+        """Use query expansion for additional coverage.
+
+        FIX: Expansion terms that are target antigens use field filters.
+        Non-antigen terms are re-embedded for semantic search across all collections.
+        """
         if not self.expander:
             return []
 
@@ -278,36 +332,63 @@ class CARTRAGEngine:
         expanded_terms = expand_query(query)
 
         additional_hits = []
-        for term in expanded_terms[:5]:  # Limit expansion breadth
-            for coll_name in collections:
-                # Only filter by target_antigen on collections that have the field
-                if not COLLECTION_CONFIG.get(coll_name, {}).get("has_target_antigen", False):
-                    continue
-                try:
-                    filter_expr = f'target_antigen == "{term}"'
-                    results = self.collections.search(
-                        coll_name, query_embedding, 3, filter_expr,
-                    )
-                    label = COLLECTION_CONFIG.get(
-                        coll_name, {}
-                    ).get("label", coll_name)
-                    for r in results:
-                        hit = SearchHit(
-                            collection=label,
-                            id=r.get("id", ""),
-                            score=r.get("score", 0.0) * 0.8,
-                            text=r.get("text_summary",
-                                       r.get("text_chunk", "")),
-                            metadata=r,
+        for term in expanded_terms[:5]:
+            term_upper = term.upper().replace("-", "").replace(" ", "")
+
+            # Check if this term is a known target antigen
+            is_antigen = any(
+                term_upper == a.upper().replace("-", "").replace(" ", "")
+                for a in _KNOWN_ANTIGENS
+            )
+
+            if is_antigen:
+                # Use as field filter on target_antigen-capable collections
+                for coll_name in collections:
+                    if not COLLECTION_CONFIG.get(coll_name, {}).get("has_target_antigen"):
+                        continue
+                    try:
+                        filter_expr = f'target_antigen == "{term}"'
+                        results = self.collections.search(
+                            coll_name, query_embedding, min(3, top_k), filter_expr,
                         )
-                        additional_hits.append(hit)
+                        label = COLLECTION_CONFIG.get(coll_name, {}).get("label", coll_name)
+                        for r in results:
+                            additional_hits.append(SearchHit(
+                                collection=label,
+                                id=r.get("id", ""),
+                                score=r.get("score", 0.0) * 0.8,
+                                text=r.get("text_summary", r.get("text_chunk", "")),
+                                metadata=r,
+                            ))
+                    except Exception:
+                        pass
+            else:
+                # Semantic search: re-embed the expansion term and search all collections
+                try:
+                    term_embedding = self._embed_query(term)
+                    term_results = self.collections.search_all(
+                        term_embedding, top_k_per_collection=2,
+                        score_threshold=settings.SCORE_THRESHOLD,
+                    )
+                    for coll_name, results in term_results.items():
+                        if coll_name not in collections:
+                            continue
+                        label = COLLECTION_CONFIG.get(coll_name, {}).get("label", coll_name)
+                        for r in results:
+                            additional_hits.append(SearchHit(
+                                collection=label,
+                                id=r.get("id", ""),
+                                score=r.get("score", 0.0) * 0.7,
+                                text=r.get("text_summary", r.get("text_chunk", "")),
+                                metadata=r,
+                            ))
                 except Exception:
                     pass
 
         return additional_hits
 
     def _merge_and_rank(self, hits: List[SearchHit]) -> List[SearchHit]:
-        """Deduplicate by ID and sort by score descending."""
+        """Deduplicate by ID, sort by score descending, cap at 30."""
         seen = set()
         unique = []
         for hit in hits:
@@ -315,19 +396,25 @@ class CARTRAGEngine:
                 seen.add(hit.id)
                 unique.append(hit)
         unique.sort(key=lambda h: h.score, reverse=True)
-        return unique[:30]  # Cap at 30 total results
+        return unique[:30]
 
     def _get_knowledge_context(self, query: str) -> str:
-        """Extract knowledge graph context relevant to the query."""
+        """Extract knowledge graph context from ALL domains."""
         if not self.knowledge:
             return ""
 
-        from .knowledge import get_target_context, get_toxicity_context
+        from .knowledge import (
+            get_target_context,
+            get_toxicity_context,
+            get_manufacturing_context,
+            get_biomarker_context,
+            get_regulatory_context,
+        )
 
         context_parts = []
+        query_upper = query.upper()
 
         # Check for target antigen mentions
-        query_upper = query.upper()
         for antigen in ["CD19", "BCMA", "CD22", "CD20", "CD30", "CD33",
                         "CD38", "CD123", "GD2", "HER2", "GPC3", "EGFR",
                         "MESOTHELIN", "CLAUDIN18.2", "PSMA", "ROR1",
@@ -345,16 +432,68 @@ class CARTRAGEngine:
                 if ctx:
                     context_parts.append(ctx)
 
+        # Check for manufacturing mentions
+        mfg_keywords = {
+            "MANUFACTURING": "lentiviral_transduction",
+            "TRANSDUCTION": "lentiviral_transduction",
+            "LENTIVIRAL": "lentiviral_transduction",
+            "EXPANSION": "ex_vivo_expansion",
+            "LEUKAPHERESIS": "leukapheresis",
+            "CRYOPRESERVATION": "cryopreservation",
+            "RELEASE TESTING": "release_testing",
+            "VEIN-TO-VEIN": "vein_to_vein_time",
+            "LYMPHODEPLETION": "lymphodepletion",
+        }
+        for keyword, process in mfg_keywords.items():
+            if keyword in query_upper:
+                ctx = get_manufacturing_context(process)
+                if ctx:
+                    context_parts.append(ctx)
+                break  # One manufacturing context is enough
+
+        # Check for biomarker mentions
+        biomarker_keywords = {
+            "FERRITIN": "ferritin", "CRP": "crp", "IL-6": "il6",
+            "IL6": "il6", "PD-1": "pd1", "PD1": "pd1",
+            "LAG-3": "lag3", "LAG3": "lag3", "TIM-3": "tim3",
+            "TIM3": "tim3", "MRD": "mrd_flow", "BIOMARKER": "ferritin",
+            "EXHAUSTION": "pd1", "CTDNA": "ctdna",
+        }
+        for keyword, biomarker in biomarker_keywords.items():
+            if keyword in query_upper:
+                ctx = get_biomarker_context(biomarker)
+                if ctx:
+                    context_parts.append(ctx)
+                break  # One biomarker context is enough
+
+        # Check for regulatory / product mentions
+        product_keywords = {
+            "KYMRIAH": "Kymriah", "TISAGENLECLEUCEL": "Kymriah",
+            "YESCARTA": "Yescarta", "AXICABTAGENE": "Yescarta",
+            "TECARTUS": "Tecartus", "BREXUCABTAGENE": "Tecartus",
+            "BREYANZI": "Breyanzi", "LISOCABTAGENE": "Breyanzi",
+            "ABECMA": "Abecma", "IDECABTAGENE": "Abecma",
+            "CARVYKTI": "Carvykti", "CILTACABTAGENE": "Carvykti",
+        }
+        for keyword, product in product_keywords.items():
+            if keyword in query_upper:
+                ctx = get_regulatory_context(product)
+                if ctx:
+                    context_parts.append(ctx)
+
+        # Also check for general regulatory terms
+        if any(term in query_upper for term in ["FDA", "BLA", "RMAT", "REGULATORY", "APPROVAL"]):
+            if not any("Regulatory" in p for p in context_parts):
+                # Add first product's regulatory context as general reference
+                ctx = get_regulatory_context("Kymriah")
+                if ctx:
+                    context_parts.append(ctx)
+
         return "\n\n".join(context_parts)
 
     @staticmethod
     def _format_citation(collection: str, record_id: str) -> str:
-        """Format a citation with clickable URL where possible.
-
-        Literature PMIDs -> PubMed link
-        Trial NCT IDs -> ClinicalTrials.gov link
-        Others -> plain [Collection:ID] format
-        """
+        """Format a citation with clickable URL where possible."""
         if collection == "Literature" and record_id.isdigit():
             return (
                 f"[Literature:PMID {record_id}]"
@@ -369,24 +508,24 @@ class CARTRAGEngine:
 
     def _build_prompt(self, question: str,
                       evidence: CrossCollectionResult) -> str:
-        """Build the LLM prompt with evidence and knowledge context."""
+        """Build LLM prompt with evidence, knowledge context, and relevance tags."""
         sections = []
-
-        # Evidence section — grouped by collection
         by_coll = evidence.hits_by_collection()
+
         for coll_name, hits in by_coll.items():
             section_lines = [f"### Evidence from {coll_name}"]
             for i, hit in enumerate(hits[:5], 1):
                 citation = self._format_citation(hit.collection, hit.id)
+                relevance = hit.metadata.get("relevance", "")
+                relevance_tag = f" [{relevance} relevance]" if relevance else ""
                 section_lines.append(
-                    f"{i}. {citation} "
+                    f"{i}. {citation}{relevance_tag} "
                     f"(score={hit.score:.3f}) {hit.text[:500]}"
                 )
             sections.append("\n".join(section_lines))
 
         evidence_text = "\n\n".join(sections) if sections else "No evidence found."
 
-        # Knowledge section
         knowledge_text = ""
         if evidence.knowledge_context:
             knowledge_text = (
@@ -403,32 +542,20 @@ class CARTRAGEngine:
             f"{question}\n\n"
             f"Please provide a comprehensive answer grounded in the evidence above. "
             f"Cite sources using the clickable markdown links provided in each evidence item. "
+            f"Prioritize [high relevance] citations. "
             f"Consider cross-functional insights across all stages of CAR-T development."
         )
 
     # ── Comparative Analysis Methods ────────────────────────────────
 
     def _is_comparative(self, question: str) -> bool:
-        """Check if a question is a comparative query."""
         q_upper = question.upper()
         return ("COMPARE" in q_upper or " VS " in q_upper
                 or "VERSUS" in q_upper or "COMPARING" in q_upper)
 
     def _parse_comparison_entities(self, question: str):
-        """Parse a comparative query to extract the two entities being compared.
-
-        Handles: "Compare X vs Y", "X versus Y", "Compare X and Y",
-        "X vs Y for indication Z"
-
-        Returns:
-            Tuple of (entity_a_dict, entity_b_dict) or (None, None).
-        """
-        import re
-
         q = question.strip()
 
-        # Pattern 1: "X vs Y" or "X versus Y"
-        # Group 2 is greedy — we strip trailing context words after
         match = re.search(
             r'(.+?)\s+(?:vs\.?|versus)\s+(.+)$',
             q, re.IGNORECASE,
@@ -438,7 +565,6 @@ class CARTRAGEngine:
             raw_b = match.group(2).strip()
             raw_a = re.sub(r'^(?:compare|comparing)\s+', '', raw_a, flags=re.IGNORECASE)
         else:
-            # Pattern 2: "Compare X and Y"
             match = re.search(
                 r'(?:compare|comparing)\s+(.+?)\s+(?:and|with)\s+(.+?)(?:\s+(?:for|in)\b.*)?$',
                 q, re.IGNORECASE,
@@ -449,11 +575,9 @@ class CARTRAGEngine:
             else:
                 return None, None
 
-        # Clean trailing punctuation
         raw_a = raw_a.rstrip('?.,;:')
         raw_b = raw_b.rstrip('?.,;:')
 
-        # Strip common trailing context phrases that aren't part of the entity
         trailing = [
             'costimulatory domains', 'costimulatory domain',
             'domains', 'domain', 'signaling',
@@ -471,19 +595,13 @@ class CARTRAGEngine:
         from .knowledge import resolve_comparison_entity
         entity_a = resolve_comparison_entity(raw_a)
         entity_b = resolve_comparison_entity(raw_b)
-
         return entity_a, entity_b
 
-    def retrieve_comparative(self, question: str) -> Optional['CrossCollectionResult']:
-        """Run comparative retrieval with two separate searches.
-
-        Performs two retrieve() calls (one per entity) and builds a
-        ComparativeResult with side-by-side knowledge graph context.
-
-        Returns:
-            ComparativeResult, or None if entities could not be parsed
-            (caller should fall back to normal retrieval).
-        """
+    def retrieve_comparative(self, question: str,
+                             collections_filter: List[str] = None,
+                             year_min: int = None,
+                             year_max: int = None) -> Optional['CrossCollectionResult']:
+        """Run comparative retrieval with two separate searches."""
         from .models import ComparativeResult
 
         entity_a, entity_b = self._parse_comparison_entities(question)
@@ -492,17 +610,13 @@ class CARTRAGEngine:
 
         start = time.time()
 
-        query_a = AgentQuery(
-            question=question,
-            target_antigen=entity_a.get("target"),
-        )
-        query_b = AgentQuery(
-            question=question,
-            target_antigen=entity_b.get("target"),
-        )
+        query_a = AgentQuery(question=question, target_antigen=entity_a.get("target"))
+        query_b = AgentQuery(question=question, target_antigen=entity_b.get("target"))
 
-        evidence_a = self.retrieve(query_a)
-        evidence_b = self.retrieve(query_b)
+        evidence_a = self.retrieve(query_a, collections_filter=collections_filter,
+                                   year_min=year_min, year_max=year_max)
+        evidence_b = self.retrieve(query_b, collections_filter=collections_filter,
+                                   year_min=year_min, year_max=year_max)
 
         comparison_context = ""
         if self.knowledge:
@@ -522,8 +636,6 @@ class CARTRAGEngine:
         )
 
     def _build_comparative_prompt(self, question: str, comp) -> str:
-        """Build a structured comparison prompt requesting tables."""
-
         def _fmt(label: str, evidence) -> str:
             sections = []
             by_coll = evidence.hits_by_collection()
