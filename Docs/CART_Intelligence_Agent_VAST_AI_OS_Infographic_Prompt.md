@@ -157,7 +157,7 @@ Enclosed in a container with teal (#1AAFCC) border.
 1. **RAG Response** — Grounded narrative with PMID + NCT citations
 2. **Comparative Analysis** — Side-by-side tables + pros/cons
 3. **Knowledge Graph** — Interactive network visualization
-4. **Image Verification** — Claude Vision claim checking
+4. **Image Verification** — LLM-based claim checking
 
 ---
 
