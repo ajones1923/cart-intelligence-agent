@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 
 class CARTStage(str, Enum):
-    """The 4 stages of CAR-T development (from TJ Chen's architecture)."""
+    """The 5 stages of CAR-T development."""
     TARGET_ID = "target_id"
     CAR_DESIGN = "car_design"
     VECTOR_ENG = "vector_eng"

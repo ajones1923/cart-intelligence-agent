@@ -255,5 +255,4 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified memory):
 ## Credits
 
 - **Adam Jones** -- HCLS AI Factory, 14+ years genomic research
-- **TJ Chen (NVIDIA)** -- "One Unified CAR-T Intelligence Platform" concept
 - **Apache 2.0 License**

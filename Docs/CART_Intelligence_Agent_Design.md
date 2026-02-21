@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-The CAR-T Intelligence Agent extends the HCLS AI Factory platform to support cross-functional intelligence across the CAR-T cell therapy development lifecycle. Inspired by TJ Chen's (NVIDIA) "One Unified CAR-T Intelligence Platform," this agent breaks down data silos between the stages of CAR-T development:
+The CAR-T Intelligence Agent extends the HCLS AI Factory platform to support cross-functional intelligence across the CAR-T cell therapy development lifecycle. The agent breaks down data silos between the stages of CAR-T development:
 
 1. **Target Identification** — Antigen biology, expression profiling, disease association
 2. **CAR Design** — scFv selection, costimulatory domains, signaling architecture
@@ -37,18 +37,7 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
 
 ## 2. Architecture Overview
 
-### 2.1 Mapping to TJ Chen's Architecture
-
-| TJ's Component | HCLS AI Factory Implementation |
-|---|---|
-| Data Sources (bottom layer) | PubMed E-utilities, ClinicalTrials.gov API v2, FDA labels, published literature |
-| Ingest Pipelines | `src/ingest/` — 5 parsers: literature, clinical trials, construct, assay, manufacturing |
-| Data Stores (middle layer) | 5 Milvus collections with IVF_FLAT/COSINE indexes |
-| Vector Database (cuVS) | Milvus 2.4 on localhost:19530 |
-| Embed + Index | BGE-small-en-v1.5 (384-dim, asymmetric query prefix) |
-| Users + Agents (top layer) | Streamlit UI (port 8520) + CARTRAGEngine + Claude Sonnet 4.6 |
-
-### 2.2 Mapping to VAST AI OS
+### 2.1 Mapping to VAST AI OS
 
 | VAST AI OS Component | CAR-T Agent Role |
 |---|---|
@@ -699,5 +688,4 @@ The key architectural insight: **the platform is not disease-specific**. By chan
 ## 14. Credits
 
 - **Adam Jones** — HCLS AI Factory platform, 14+ years genomic research
-- **TJ Chen (NVIDIA)** — "One Unified CAR-T Intelligence Platform" concept and architecture inspiration
 - **Apache 2.0 License**
