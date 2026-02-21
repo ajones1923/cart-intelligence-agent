@@ -51,7 +51,7 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
 
 ```
                         ┌─────────────────────────────┐
-                        │   Streamlit Chat UI (8520)   │
+                        │   Streamlit Chat UI (8521)   │
                         │   Cross-functional queries   │
                         │   + Comparative Analysis UI  │
                         └──────────────┬──────────────┘
@@ -545,7 +545,7 @@ Note: Ingest rate is dominated by BGE-small embedding time (~180ms per text on C
 | Vector database | Milvus | 2.4, localhost:19530 |
 | Embedding model | BGE-small-en-v1.5 | 384-dim, BAAI, ~33M params |
 | LLM | Claude Sonnet 4.6 | Anthropic API, claude-sonnet-4-6 |
-| UI framework | Streamlit | Port 8520, NVIDIA black/green theme |
+| UI framework | Streamlit | Port 8521, NVIDIA black/green theme |
 | Data models | Pydantic | BaseModel + Field validation |
 | Configuration | Pydantic BaseSettings | Environment variable support |
 | Hardware target | NVIDIA DGX Spark | GB10 GPU, 128GB unified, $3,999 |
@@ -554,7 +554,7 @@ Note: Ingest rate is dominated by BGE-small embedding time (~180ms per text on C
 
 | Port | Service |
 |---|---|
-| 8520 | CAR-T Intelligence Agent Streamlit UI |
+| 8521 | CAR-T Intelligence Agent Streamlit UI |
 | 19530 | Milvus vector database (shared with main pipeline) |
 
 ### 9.3 Dependencies on HCLS AI Factory
@@ -655,7 +655,7 @@ cart_intelligence_agent/
 | **Phase 1: Scaffold** | Complete | Data models, collection schemas, knowledge graph, query expansion, RAG engine, agent, Streamlit UI, ingest pipeline stubs |
 | **Phase 2: Data Ingest** | Complete | PubMed (4,995), ClinicalTrials.gov (973), FDA constructs (6), assay seed (45), manufacturing seed (30) |
 | **Phase 3: RAG Integration** | Complete | Multi-collection search, knowledge augmentation, Claude Sonnet 4.6 streaming, 5 demo queries validated |
-| **Phase 4: UI + Demo** | Complete | Streamlit UI on port 8520, NVIDIA theme, sidebar filters, demo query buttons, streaming responses |
+| **Phase 4: UI + Demo** | Complete | Streamlit UI on port 8521, NVIDIA theme, sidebar filters, demo query buttons, streaming responses |
 | **Phase 5: UI + Analysis** | Complete | Clickable PubMed/ClinicalTrials.gov citation links, collapsible evidence panel with collection badges, **Comparative Analysis Mode** with auto-detection, entity resolution (18 aliases), dual retrieval (~365ms), entity-grouped evidence panel, and structured markdown comparison tables |
 
 ### Remaining Work

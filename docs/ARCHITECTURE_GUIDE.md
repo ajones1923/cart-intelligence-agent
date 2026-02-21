@@ -74,7 +74,7 @@ Stage 3: Drug Discovery  Target -> Molecules (BioNeMo)
 | Metric | Value |
 |--------|-------|
 | Source files | ~30 Python modules |
-| Total lines of code | ~8,500+ |
+| Total lines of code | ~16,744 |
 | Milvus collections | 11 (10 owned + 1 read-only) |
 | Knowledge graph entries | ~25 targets + 8 toxicities + 10 manufacturing + 15 biomarkers + 6 regulatory + 6 immunogenicity |
 | Query expansion maps | 12 maps, 169 keyword entries |

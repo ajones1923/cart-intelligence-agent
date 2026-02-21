@@ -13,7 +13,13 @@ The CAR-T Intelligence Agent breaks down data silos across the 5 stages of CAR-T
 | **CAR Constructs** | 6 | 6 FDA-approved CAR-T products |
 | **Assay Results** | 45 | Curated from landmark papers (ELIANA, ZUMA-1, KarMMa, CARTITUDE-1, etc.) |
 | **Manufacturing** | 30 | Curated CMC/process data (transduction, expansion, release, cryo, logistics) |
-| **Total** | **6,049 vectors** | |
+| **Safety** | — | Pharmacovigilance, CRS/ICANS profiles |
+| **Biomarkers** | — | CRS prediction, exhaustion monitoring |
+| **Regulatory** | — | Approval timelines, post-marketing requirements |
+| **Sequences** | — | Molecular binding, scFv sequences |
+| **Real-World Evidence** | — | Registry outcomes, real-world data |
+| **Genomic Evidence** | *(read-only)* | Shared from Stage 2 RAG pipeline (Milvus) |
+| **Total** | **6,049+ vectors** | **11 collections (10 owned + 1 read-only)** |
 
 ### Example Queries
 
@@ -91,7 +97,7 @@ Built on the HCLS AI Factory platform:
 - **Vector DB:** Milvus 2.4 with IVF_FLAT/COSINE indexes (nlist=1024, nprobe=16)
 - **Embeddings:** BGE-small-en-v1.5 (384-dim)
 - **LLM:** Claude Sonnet 4.6 (Anthropic API)
-- **UI:** Streamlit (port 8520)
+- **UI:** Streamlit (port 8521)
 - **Hardware target:** NVIDIA DGX Spark ($3,999)
 
 ## Setup
@@ -168,7 +174,7 @@ Tests the full RAG pipeline: embed -> search_all -> knowledge graph -> Claude LL
 ### 8. Launch UI
 
 ```bash
-streamlit run app/cart_ui.py --server.port 8520
+streamlit run app/cart_ui.py --server.port 8521
 ```
 
 ## Project Structure
@@ -179,7 +185,7 @@ cart_intelligence_agent/
 │   └── CART_Intelligence_Agent_Design.md  # Architecture design document
 ├── src/
 │   ├── models.py                  # Pydantic data models (16 models + enums)
-│   ├── collections.py             # 5 Milvus collection schemas + manager
+│   ├── collections.py             # 11 Milvus collection schemas + manager
 │   ├── knowledge.py               # Knowledge graph (25 targets, 8 toxicities, 10 mfg)
 │   ├── query_expansion.py         # 6 expansion maps (111 keywords -> 1,086 terms)
 │   ├── rag_engine.py              # Multi-collection RAG engine + comparative analysis + Claude
@@ -222,9 +228,12 @@ cart_intelligence_agent/
 |---|---|---|
 | Target Antigens | 25 | CD19, BCMA, CD22, CD20, CD30, HER2, GPC3, EGFR, Mesothelin, GPRC5D, ... |
 | FDA-Approved Products | 6 | Kymriah, Yescarta, Tecartus, Breyanzi, Abecma, Carvykti |
-| Entity Aliases | 18 | Product names, generic names, costimulatory domains (for comparative resolution) |
+| Entity Aliases | 39+ | Product names, generic names, costimulatory domains (for comparative resolution) |
 | Toxicity Profiles | 8 | CRS, ICANS, B-cell aplasia, HLH/MAS, cytopenias, TLS, GvHD, on-target/off-tumor |
 | Manufacturing Processes | 10 | Transduction, expansion, leukapheresis, cryopreservation, release testing, ... |
+| Biomarkers | 15 | CRS prediction, T-cell exhaustion, persistence, cytokine panels, ... |
+| Regulatory Histories | 6 | Approval timelines, post-marketing requirements for all FDA products |
+| Immunogenicity Topics | 6 | ADA, immunogenicity assays, risk factors, ... |
 | Query Expansion Maps | 6 | Target Antigen, Disease, Toxicity, Manufacturing, Mechanism, Construct |
 | Expansion Keywords | 111 | Mapping to 1,086 related terms |
 
@@ -238,8 +247,8 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified memory):
 | ClinicalTrials.gov ingest (973 trials) | ~3 min |
 | Assay seed ingest (45 records) | ~30 sec |
 | Manufacturing seed ingest (30 records) | ~30 sec |
-| Vector search (5 collections, top-5 each) | 12-16 ms (cached) |
-| Comparative dual retrieval (2x5 collections) | ~365 ms |
+| Vector search (11 collections, top-5 each) | 12-16 ms (cached) |
+| Comparative dual retrieval (2x11 collections) | ~365 ms |
 | Full RAG query (search + Claude) | ~24 sec |
 | Comparative RAG query (dual search + Claude) | ~30 sec |
 | Cosine similarity scores | 0.74 - 0.90 |
