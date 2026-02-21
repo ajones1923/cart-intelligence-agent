@@ -8,7 +8,7 @@ The CAR-T Intelligence Agent breaks down data silos across the 5 stages of CAR-T
 
 | Collection | Records | Source |
 |---|---|---|
-| **Literature** | 4,995 | PubMed abstracts via NCBI E-utilities |
+| **Literature** | 5,047 | PubMed abstracts via NCBI E-utilities |
 | **Clinical Trials** | 973 | ClinicalTrials.gov API v2 |
 | **CAR Constructs** | 6 | 6 FDA-approved CAR-T products |
 | **Assay Results** | 45 | Curated from landmark papers (ELIANA, ZUMA-1, KarMMa, CARTITUDE-1, etc.) |
@@ -19,7 +19,7 @@ The CAR-T Intelligence Agent breaks down data silos across the 5 stages of CAR-T
 | **Sequences** | — | Molecular binding, scFv sequences |
 | **Real-World Evidence** | — | Registry outcomes, real-world data |
 | **Genomic Evidence** | *(read-only)* | Shared from Stage 2 RAG pipeline (Milvus) |
-| **Total** | **6,049+ vectors** | **11 collections (10 owned + 1 read-only)** |
+| **Total** | **6,266+ vectors** | **11 collections (10 owned + 1 read-only)** |
 
 ### Example Queries
 
@@ -49,7 +49,7 @@ Comparative queries are **auto-detected** and produce structured side-by-side an
 | Feature | Detail |
 |---|---|
 | Entity types | Targets, FDA products, costimulatory domains, toxicities, manufacturing |
-| Entity resolution | 25 antigens + 18 product/domain aliases |
+| Entity resolution | 25 antigens + 39+ product/domain/biomarker/regulatory aliases |
 | Dual retrieval | ~365ms for 46 results (24 + 22 per entity) |
 | Structured output | Comparison table, advantages, limitations, clinical context |
 | Fallback | Unrecognized entities gracefully fall back to normal query path |
@@ -69,12 +69,12 @@ User Query
 (384-dim, asymmetric query prefix)                  (Entity A + Entity B)
     |                                                        |
     v                                                        v
-[Parallel Search: 5 Milvus Collections]     [Comparative Prompt Builder]
+[Parallel Search: 11 Milvus Collections]     [Comparative Prompt Builder]
 (IVF_FLAT / COSINE)                         (tables + pros/cons format)
     |               |           |                            |
     v               v           v                            |
 Literature      Trials     Constructs                        |
- 4,995           973           6                             |
+ 5,047           973           6                             |
     |               |           |                            |
  Assays      Manufacturing     |                             |
    45             30           |                             |
@@ -121,7 +121,7 @@ pip install -r requirements.txt
 python3 scripts/setup_collections.py --seed-constructs
 ```
 
-This creates 5 Milvus collections with IVF_FLAT indexes and inserts 6 FDA-approved CAR-T products (Kymriah, Yescarta, Tecartus, Breyanzi, Abecma, Carvykti).
+This creates 11 Milvus collections (10 owned + 1 read-only) with IVF_FLAT indexes and inserts 6 FDA-approved CAR-T products (Kymriah, Yescarta, Tecartus, Breyanzi, Abecma, Carvykti).
 
 ### 2. Ingest PubMed Literature (~15 min)
 
@@ -243,7 +243,7 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified memory):
 
 | Metric | Value |
 |---|---|
-| PubMed ingest (4,995 abstracts) | ~15 min |
+| PubMed ingest (5,047 abstracts) | ~15 min |
 | ClinicalTrials.gov ingest (973 trials) | ~3 min |
 | Assay seed ingest (45 records) | ~30 sec |
 | Manufacturing seed ingest (30 records) | ~30 sec |
@@ -256,9 +256,9 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified memory):
 ## Status
 
 - **Week 1 (Scaffold)** -- Complete. Architecture, data models, collection schemas, knowledge graph, ingest pipelines, RAG engine, agent, and Streamlit UI.
-- **Week 2 Days 1-3 (Data)** -- Complete. PubMed (4,995) + ClinicalTrials.gov (973) + FDA constructs (6) ingested. End-to-end validation passing.
+- **Week 2 Days 1-3 (Data)** -- Complete. PubMed (5,047) + ClinicalTrials.gov (973) + FDA constructs (6) ingested. End-to-end validation passing.
 - **Week 2 Days 4-5 (Integration)** -- Complete. Full RAG pipeline with Claude LLM generating grounded cross-functional answers. Streamlit UI working.
-- **Week 2 Day 5+ (Assay + Manufacturing Data)** -- Complete. 45 curated assay records + 30 manufacturing/CMC records seeded. All 11 collections populated (10 owned + 1 read-only). Total: 6,049+ owned vectors.
+- **Week 2 Day 5+ (Assay + Manufacturing Data)** -- Complete. 45 curated assay records + 30 manufacturing/CMC records seeded. All 11 collections populated (10 owned + 1 read-only). Total: 6,266 owned vectors.
 - **Week 3 (UI + Analysis)** -- Complete. Clickable PubMed/ClinicalTrials.gov citation links, collapsible evidence panel with collection badges, and **Comparative Analysis Mode** with auto-detection, dual retrieval, entity-grouped evidence, and structured markdown tables.
 
 ## Credits

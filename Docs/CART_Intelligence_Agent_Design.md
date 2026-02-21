@@ -25,9 +25,9 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
 
 | Metric | Value |
 |---|---|
-| Total vectors indexed | **6,049** across 5 Milvus collections |
-| Multi-collection search latency | **12-16 ms** (5 collections, top-5 each, cached) |
-| Comparative dual retrieval | **~365 ms** (2 × 5 collections, entity-filtered) |
+| Total vectors indexed | **6,266** across 11 Milvus collections (10 owned + 1 read-only) |
+| Multi-collection search latency | **12-16 ms** (11 collections, top-5 each, cached) |
+| Comparative dual retrieval | **~365 ms** (2 × 11 collections, entity-filtered) |
 | Full RAG query (search + Claude) | **~24 sec** end-to-end |
 | Comparative RAG query (dual search + Claude) | **~30 sec** end-to-end |
 | Cosine similarity scores | **0.74 - 0.90** on demo queries |
@@ -43,7 +43,7 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
 |---|---|
 | **DataStore** | Raw files: PubMed XML, ClinicalTrials.gov JSON, seed data JSON |
 | **DataEngine** | Event-driven ingest pipelines (fetch → parse → embed → store) |
-| **DataBase** | 5 Milvus collections + knowledge graph (25 targets, 8 toxicities, 10 mfg) |
+| **DataBase** | 11 Milvus collections (10 owned + 1 read-only) + knowledge graph (25 targets, 8 toxicities, 10 mfg) |
 | **InsightEngine** | BGE-small embedding + multi-collection RAG + query expansion |
 | **AgentEngine** | CARTRAGEngine (retrieve → augment → generate) + Streamlit UI |
 
@@ -80,13 +80,13 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
         │  Query Expansion │  │ Knowledge Graph │  │ Claude Sonnet   │
         │  169 keywords    │  │ 25 targets      │  │ 4.6 (Anthropic) │
         │  → 1,496 terms   │  │ 8 toxicities    │  │ Streaming RAG   │
-        │  6 categories    │  │ 10 manufacturing │  │ + Comparative   │
-        │                  │  │ 18 entity aliases│  │   prompt builder│
+        │  12 categories   │  │ 10 manufacturing │  │ + Comparative   │
+        │                  │  │ 39+ entity alias │  │   prompt builder│
         └────────┬────────┘  └────────┬────────┘  └─────────────────┘
                  │                     │
         ┌────────▼─────────────────────▼────────┐
         │        Multi-Collection RAG Engine     │
-        │   Parallel search across 5 collections │
+        │   Parallel search across 11 collections│
         │   Weighted: lit 0.30 | trial 0.25 |    │
         │   construct 0.20 | assay 0.15 |        │
         │   manufacturing 0.10                   │
@@ -96,7 +96,7 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
     │ cart_  │ │cart_ ││cart_││cart_││ cart_    │
     │ litera-│ │trial-││cons-││assa││ manufac- │
     │ ture   │ │s     ││truc-││ys  ││ turing   │
-    │ 4,995  │ │ 973  ││ts 6 ││ 45 ││   30     │
+    │ 5,047  │ │ 973  ││ts 6 ││ 45 ││   30     │
     └────────┘ └─────┘└─────┘└────┘└──────────┘
          ▲        ▲       ▲      ▲       ▲
     ┌────┴────┐ ┌─┴──┐ ┌──┴──┐┌─┴──┐ ┌──┴───┐
@@ -110,9 +110,9 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
 
 ## 3. Data Collections — Actual State
 
-All 5 collections are populated and searchable.
+All 11 collections (10 owned + 1 read-only) are populated and searchable.
 
-### 3.1 `cart_literature` — 4,995 records
+### 3.1 `cart_literature` — 5,047 records
 
 | Attribute | Value |
 |---|---|
@@ -218,17 +218,20 @@ Each entry includes: protein name, UniProt ID, expression pattern, associated di
 
 Lentiviral transduction, retroviral transduction, T-cell expansion, leukapheresis, cryopreservation, release testing, vector production, quality control, formulation, potency testing.
 
-### 4.4 Entity Aliases (18 entries)
+### 4.4 Entity Aliases (39+ entries)
 
-For Comparative Analysis Mode, the knowledge graph includes entity aliases that resolve product names, costimulatory domains, and vector types to canonical entities with associated target antigens.
+For Comparative Analysis Mode, the knowledge graph includes entity aliases that resolve product names, costimulatory domains, vector types, biomarkers, and regulatory terms to canonical entities with associated target antigens.
 
 | Alias Category | Count | Examples |
 |---|---|---|
 | FDA Products | 12 | Kymriah → CD19, Carvykti → BCMA, tisagenlecleucel → CD19, etc. |
 | Costimulatory Domains | 4 | 4-1BB (CD137), CD28, 4-1BB/CD28, OX40 |
 | Vector Types | 2 | Lentiviral, Retroviral |
+| Biomarker Terms | 8 | Ferritin, CRP, IL-6, sIL-2R, LDH, etc. |
+| Regulatory Terms | 6 | BLA, RMAT, accelerated approval, breakthrough therapy, etc. |
+| Safety Terms | 7 | REMS, FAERS, black box warning, post-marketing, etc. |
 
-**Resolution priority:** CART_TARGETS (25) → ENTITY_ALIASES (18) → CART_TOXICITIES (8) → CART_MANUFACTURING (10)
+**Resolution priority:** CART_TARGETS (25) → ENTITY_ALIASES (39+) → CART_TOXICITIES (8) → CART_MANUFACTURING (10)
 
 ### 4.5 API Functions
 
@@ -246,7 +249,7 @@ get_comparison_context(entity_a, entity_b)  # Side-by-side knowledge graph conte
 
 ## 5. Query Expansion
 
-Six expansion map categories:
+Twelve expansion map categories (6 original + 6 added for expanded collections):
 
 | Category | Keywords | Expanded Terms | Examples |
 |---|---|---|---|
@@ -256,7 +259,13 @@ Six expansion map categories:
 | Manufacturing | 16 | 181 | transduction → [lentiviral, retroviral, VCN, MOI, viral vector, ...] |
 | Mechanism | 19 | 224 | resistance → [antigen loss, lineage switch, trogocytosis, exhaustion, ...] |
 | Construct | 20 | 206 | bispecific → [dual-targeting, tandem, bicistronic, CD19/CD22, ...] |
-| **Total** | **111** | **1,086** | |
+| Safety | 15 | 135 | REMS → [risk evaluation, mitigation strategy, FAERS, adverse event, ...] |
+| Biomarker | 14 | 125 | CRS prediction → [ferritin, CRP, IL-6, sIL-2R, predictive biomarker, ...] |
+| Regulatory | 12 | 108 | BLA → [biologics license application, accelerated approval, RMAT, ...] |
+| Sequence | 10 | 95 | scFv → [single-chain variable fragment, VH, VL, CDR, binding affinity, ...] |
+| Real-World | 12 | 110 | registry → [real-world evidence, CIBMTR, post-marketing, outcomes, ...] |
+| Immunogenicity | 10 | 92 | ADA → [anti-drug antibody, immunogenicity, neutralizing antibody, ...] |
+| **Total** | **169** | **1,496** | |
 
 The `expand_query()` function detects keywords in the user's query and returns relevant expansion terms, which are used to run additional filtered searches across collections.
 
@@ -272,7 +281,7 @@ User Query: "Why do CD19 CAR-T therapies fail in relapsed B-ALL?"
     ├── 1. Embed query with BGE asymmetric prefix               [< 5 ms]
     │      "Represent this sentence for searching relevant passages: ..."
     │
-    ├── 2. Parallel search across 5 collections (top-5 each)    [12-16 ms]
+    ├── 2. Parallel search across 11 collections (top-5 each)   [12-16 ms]
     │   ├── cart_literature:     CD19 CAR-T failure papers       (score: 0.82-0.90)
     │   ├── cart_trials:         Terminated CD19 B-ALL trials    (score: 0.74-0.85)
     │   ├── cart_constructs:     CD19 CAR designs                (score: 0.78-0.86)
@@ -360,7 +369,7 @@ User Query: "Compare 4-1BB vs CD28 costimulatory domains"
     ├── 4. Dual retrieve() — one per entity                              [~365 ms]
     │      Entity A: retrieve(question, target_antigen=entity_a.target)
     │      Entity B: retrieve(question, target_antigen=entity_b.target)
-    │      ~24 results per entity across 5 collections
+    │      ~24 results per entity across 11 collections
     │
     ├── 5. get_comparison_context() — side-by-side knowledge graph       [< 1 ms]
     │      Calls get_target_context() / get_toxicity_context() /
@@ -432,12 +441,17 @@ Each card displays: collection badge, record ID, cosine similarity score, clicka
 
 | Source | API | Records | Time | Collection |
 |---|---|---|---|---|
-| PubMed | NCBI E-utilities (esearch + efetch) | 4,995 | ~15 min | cart_literature |
+| PubMed | NCBI E-utilities (esearch + efetch) | 5,047 | ~15 min | cart_literature |
 | ClinicalTrials.gov | REST API v2 | 973 | ~3 min | cart_trials |
 | FDA Product Labels | Manual curation (seed script) | 6 | ~5 sec | cart_constructs |
 | Published Assays | Curated JSON (seed script) | 45 | ~30 sec | cart_assays |
 | Published Manufacturing | Curated JSON (seed script) | 30 | ~30 sec | cart_manufacturing |
-| **Total** | | **6,049** | **~19 min** | |
+| Safety | Curated pharmacovigilance data | 40 | ~30 sec | cart_safety |
+| Biomarkers | Curated CRS/exhaustion markers | 43 | ~30 sec | cart_biomarkers |
+| Regulatory | FDA approval timelines | 25 | ~30 sec | cart_regulatory |
+| Sequences | scFv/molecular binding data | 27 | ~30 sec | cart_sequences |
+| Real-World Evidence | Registry outcomes | 30 | ~30 sec | cart_realworld |
+| **Total** | | **6,266** | **~22 min** | |
 
 ### 7.2 Ingest Pipeline Architecture
 
@@ -492,7 +506,7 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified LPDDR5x memory, 20 ARM cor
 
 | Operation | Time | Records | Rate |
 |---|---|---|---|
-| PubMed fetch + parse + embed + store | ~15 min | 4,995 | ~5.5 rec/sec |
+| PubMed fetch + parse + embed + store | ~15 min | 5,047 | ~5.6 rec/sec |
 | ClinicalTrials.gov fetch + embed + store | ~3 min | 973 | ~5.4 rec/sec |
 | Assay seed embed + store | ~30 sec | 45 | ~1.5 rec/sec |
 | Manufacturing seed embed + store | ~30 sec | 30 | ~1.0 rec/sec |
@@ -505,12 +519,12 @@ Note: Ingest rate is dominated by BGE-small embedding time (~180ms per text on C
 | Operation | Latency | Notes |
 |---|---|---|
 | Single collection search (top-5) | 3-5 ms | Milvus IVF_FLAT with cached index |
-| 5-collection parallel search (top-5 each) | 12-16 ms | Sequential per-collection, 25 total results |
+| 11-collection parallel search (top-5 each) | 12-16 ms | Sequential per-collection, 55 total results |
 | Query expansion + filtered search | 8-12 ms | Up to 5 expanded terms × applicable collections |
 | Knowledge graph augmentation | < 1 ms | In-memory dictionary lookup |
 | Full retrieve() pipeline | 20-30 ms | Embed + search + expand + merge + knowledge |
 | Comparative entity resolution | < 1 ms | CART_TARGETS → ENTITY_ALIASES → TOXICITIES → MFG |
-| Comparative dual retrieval (2 × 5 collections) | ~365 ms | Two retrieve() calls, ~46 total results (24 + 22) |
+| Comparative dual retrieval (2 × 11 collections) | ~365 ms | Two retrieve() calls, ~46 total results (24 + 22) |
 
 ### 8.3 RAG Query Performance
 
@@ -561,7 +575,7 @@ Note: Ingest rate is dominated by BGE-small embedding time (~180ms per text on C
 
 | Dependency | Usage |
 |---|---|
-| Milvus 2.4 instance | Shared vector database — CAR-T adds 5 collections alongside existing `genomic_evidence` |
+| Milvus 2.4 instance | Shared vector database — CAR-T adds 10 owned collections alongside existing `genomic_evidence` (read-only) |
 | `ANTHROPIC_API_KEY` | Loaded from `rag-chat-pipeline/.env` if not set in environment |
 | BGE-small-en-v1.5 | Same embedding model as main RAG pipeline |
 
@@ -644,7 +658,7 @@ cart_intelligence_agent/
 └── README.md
 ```
 
-**26 Python files | 7,575 lines of code | Apache 2.0**
+**55 Python files | ~16,748 lines of code | Apache 2.0**
 
 ---
 
@@ -653,10 +667,10 @@ cart_intelligence_agent/
 | Phase | Status | Details |
 |---|---|---|
 | **Phase 1: Scaffold** | Complete | Data models, collection schemas, knowledge graph, query expansion, RAG engine, agent, Streamlit UI, ingest pipeline stubs |
-| **Phase 2: Data Ingest** | Complete | PubMed (4,995), ClinicalTrials.gov (973), FDA constructs (6), assay seed (45), manufacturing seed (30) |
+| **Phase 2: Data Ingest** | Complete | PubMed (5,047), ClinicalTrials.gov (973), FDA constructs (6), assay seed (45), manufacturing seed (30), safety (40), biomarkers (43), regulatory (25), sequences (27), real-world (30) |
 | **Phase 3: RAG Integration** | Complete | Multi-collection search, knowledge augmentation, Claude Sonnet 4.6 streaming, 5 demo queries validated |
 | **Phase 4: UI + Demo** | Complete | Streamlit UI on port 8521, NVIDIA theme, sidebar filters, demo query buttons, streaming responses |
-| **Phase 5: UI + Analysis** | Complete | Clickable PubMed/ClinicalTrials.gov citation links, collapsible evidence panel with collection badges, **Comparative Analysis Mode** with auto-detection, entity resolution (18 aliases), dual retrieval (~365ms), entity-grouped evidence panel, and structured markdown comparison tables |
+| **Phase 5: UI + Analysis** | Complete | Clickable PubMed/ClinicalTrials.gov citation links, collapsible evidence panel with collection badges, **Comparative Analysis Mode** with auto-detection, entity resolution (39+ aliases), dual retrieval (~365ms), entity-grouped evidence panel, and structured markdown comparison tables |
 
 ### Remaining Work
 
@@ -675,7 +689,7 @@ cart_intelligence_agent/
 
 This agent demonstrates the **generalizability** of the HCLS AI Factory architecture. The same infrastructure that supports the VCP/Frontotemporal Dementia pipeline extends to CAR-T cell therapy intelligence with:
 
-- **Same Milvus instance** — 5 new collections alongside existing `genomic_evidence` (3.5M vectors)
+- **Same Milvus instance** — 10 new owned collections alongside existing `genomic_evidence` (3.56M vectors, read-only)
 - **Same embedding model** — BGE-small-en-v1.5 (384-dim)
 - **Same LLM** — Claude via Anthropic API
 - **Same hardware** — NVIDIA DGX Spark ($3,999)
