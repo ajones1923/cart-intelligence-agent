@@ -51,8 +51,8 @@ Create a professional technical architecture infographic in landscape orientatio
 
 **Right — Legend** (compact):
 ```
-● Literature (4,995)  ● Trials (973)
-● Constructs (6)  ● Assays (45)  ● Manufacturing (30)
+● Literature (5,047)  ● Trials (973)  ● Constructs (6)
+● Assays (45)  ● Manufacturing (30)  +6 more collections
 → Data Flow   ⇒ Comparative Mode
 ```
 
@@ -62,7 +62,7 @@ Create a professional technical architecture infographic in landscape orientatio
 
 Vertical stack of 5 small cards with icon + bold label + one-line detail:
 
-1. **PubMed** [journal] — 4,995 abstracts via NCBI E-utilities
+1. **PubMed** [journal] — 5,047 abstracts via NCBI E-utilities
 2. **ClinicalTrials.gov** [clipboard] — 973 trials via API v2
 3. **FDA Products** [shield] — 6 approved CAR-T therapies
 4. **Landmark Papers** [star] — 45 assay records (ELIANA, ZUMA-1, KarMMa)
@@ -88,15 +88,13 @@ Enclosed in a container with NVIDIA green border.
 - Badge: "33M params"
 
 **Box: Milvus 2.4** [green border, largest box in this layer]
-- "Vector Database"
-- 5 color-coded mini-cards in a row, each showing only collection name and count:
-  - Literature: 4,995
-  - Trials: 973
-  - Constructs: 6
-  - Assays: 45
-  - Manufacturing: 30
+- "Vector Database — 11 Collections"
+- 10 color-coded mini-cards in two rows, each showing only collection name and count:
+  - Row 1: Literature: 5,047 | Trials: 973 | Constructs: 6 | Assays: 45 | Manufacturing: 30
+  - Row 2: Safety: 40 | Biomarkers: 43 | Regulatory: 25 | Sequences: 27 | Real-World: 30
+- Small note: "+1 read-only: Genomic Evidence (3.56M)"
 - Below: "IVF_FLAT | COSINE | nlist=1024"
-- Badge: "6,049 vectors"
+- Badge: "6,266 owned vectors"
 
 #### Layer 3B: EXECUTION LAYER
 
@@ -112,16 +110,16 @@ Flow runs left-to-right with arrows connecting each box:
 - Two arrows: "YES → Dual Path" / "NO → Standard"
 
 **Box: Query Expansion** [amber border]
-- "111 keywords → 1,086 terms"
-- Badge: "6 maps"
+- "169 keywords → 1,496 terms"
+- Badge: "12 maps"
 
 **Box: Knowledge Graph** [amber border]
-- "25 targets | 8 toxicities | 10 mfg"
-- Badge: "111+ entities"
+- "25 targets | 15 biomarkers | 8 toxicities"
+- Badge: "70+ entities"
 
 **Box: Parallel Search** [green border, wide]
-- "5 collections searched simultaneously"
-- 5 small colored squares in a row (one per collection)
+- "11 collections searched simultaneously"
+- 11 small colored squares in a row (one per collection)
 - Badge: "12-16 ms"
 
 **Box: Comparative Mode** [emerald border, below standard path]
@@ -191,7 +189,7 @@ Full-width bar, NVIDIA green (#76B900) background, white text. NVIDIA logo on le
 | DGX Spark | Milvus 2.4 | BGE-small | Claude Sonnet 4.6 | Docker Compose |
 |---|---|---|---|---|
 | GB10 Superchip | IVF_FLAT / COSINE | 384-dim vectors | Streaming RAG | 6 services |
-| 128 GB, $3,999 | 6,049 vectors | Asymmetric encoding | ~24 sec e2e | Ports 8521, 8522 |
+| 128 GB, $3,999 | 11 collections | Asymmetric encoding | ~25 sec e2e | Ports 8521, 8522 |
 
 ---
 
@@ -222,11 +220,11 @@ Full-width bar, NVIDIA green (#76B900) background, white text. NVIDIA logo on le
 ## WHAT THIS DIAGRAM MUST COMMUNICATE AT A GLANCE
 
 1. Single NVIDIA DGX Spark ($3,999) runs everything
-2. 5 data sources feed 5 Milvus collections (6,049 vectors)
+2. 5 data sources feed 11 Milvus collections (6,266+ vectors, 10 owned + 1 read-only)
 3. Three-layer architecture: Data → Execution → Synthesis
-4. Knowledge graph + query expansion enrich every search
+4. Knowledge graph (70+ entities) + query expansion (12 maps, 1,496 terms) enrich every search
 5. Comparative mode auto-detects "X vs Y" queries
-6. Claude Sonnet 4.6 generates grounded answers with citations
+6. Claude Sonnet 4.6 generates grounded answers with citations (~25 sec)
 7. Part of the broader HCLS AI Factory ecosystem
 
 The overall impression: a complete CAR-T intelligence platform on a single desktop supercomputer — clean enough to read every label at a glance.

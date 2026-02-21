@@ -47,7 +47,7 @@ Create a professional technical architecture infographic in landscape orientatio
 **Center:**
 - **Title:** "CAR-T Intelligence Agent"
 - **Subtitle:** "Cross-Functional CAR-T Intelligence on VAST AI OS + NVIDIA DGX SuperPOD"
-- **Tagline:** "6,049+ Vectors | 25 Targets | 5 Development Stages"
+- **Tagline:** "6,266+ Vectors | 11 Collections | 25 Targets"
 
 **Right — Legend** (compact):
 ```
@@ -63,7 +63,7 @@ NVIDIA (green): DGX SuperPOD | BGE-small
 
 Vertical stack of 5 small cards with icon + bold label + one-line detail:
 
-1. **PubMed** [journal] — 4,995 abstracts via NCBI E-utilities
+1. **PubMed** [journal] — 5,047 abstracts via NCBI E-utilities
 2. **ClinicalTrials.gov** [clipboard] — 973 trials via API v2
 3. **FDA Products** [shield] — 6 approved CAR-T therapies
 4. **Landmark Papers** [star] — 45 assay records (ELIANA, ZUMA-1, KarMMa)
@@ -89,13 +89,11 @@ Enclosed in a container with teal (#1AAFCC) border.
 - Badge: "S3 interface"
 
 **Box: Canonical CAR-T Data** [emerald border, larger, light green tint]
-- 5 mini-cards in a row, each showing only name + count:
-  - Literature: 4,995
-  - Trials: 973
-  - Constructs: 6
-  - Assays: 45
-  - Manufacturing: 30
-- Badge: "6,049 total"
+- 10 color-coded mini-cards in two rows, each showing only name + count:
+  - Row 1: Literature: 5,047 | Trials: 973 | Constructs: 6 | Assays: 45 | Manufacturing: 30
+  - Row 2: Safety: 40 | Biomarkers: 43 | Regulatory: 25 | Sequences: 27 | Real-World: 30
+- Small note: "+1 read-only: Genomic Evidence (3.56M)"
+- Badge: "6,266 owned | 11 collections"
 
 #### Sub-row 3B: EXECUTION PLANE
 
@@ -107,16 +105,16 @@ Enclosed in a container with teal (#1AAFCC) border.
 - Badge: "168h refresh"
 
 **Box: Query Expansion** [amber border]
-- "111 keywords → 1,086 terms"
-- Badge: "6 maps"
+- "169 keywords → 1,496 terms"
+- Badge: "12 maps"
 
 **Box: Knowledge Graph** [amber border]
-- "25 targets | 8 toxicities | 10 mfg"
-- Badge: "111+ entities"
+- "25 targets | 15 biomarkers | 8 toxicities"
+- Badge: "70+ entities"
 
 **Box: Parallel Search** [teal border, wide]
-- "5 collections searched simultaneously"
-- 5 colored squares (one per collection)
+- "11 collections searched simultaneously"
+- 11 colored squares (one per collection)
 - Badge: "< 20 ms"
 
 **Box: Comparative Mode** [emerald border, below standard path]
@@ -131,12 +129,12 @@ Enclosed in a container with teal (#1AAFCC) border.
 **Box: DataBase** [teal border, VAST badge]
 - "Unified SQL + Vector"
 - "384-dim vectors | COSINE similarity"
-- Badges: "6,049 vectors" | "< 20 ms"
+- Badges: "6,266+ vectors" | "< 20 ms"
 
 **Box: InsightEngine** [teal border, VAST badge]
 - "Multi-collection RAG"
 - "Query expansion + knowledge graph"
-- Badge: "1,086 terms"
+- Badge: "1,496 terms"
 
 **Box: AgentEngine** [teal border, VAST badge, largest in this row]
 - "Plan → Execute → Reflect → Report"
@@ -200,7 +198,7 @@ Full-width bar split in two halves. White text throughout.
 | DataStore | DataEngine | DataBase | InsightEngine | AgentEngine |
 |---|---|---|---|---|
 | S3 file interface | 5 ingest pipelines | Unified SQL + Vector | RAG orchestration | Agent runtime |
-| Immutable archive | Event-driven | 6,049+ vectors | Knowledge graph | Plan/Execute/Reflect |
+| Immutable archive | Event-driven | 11 collections | 12 expansion maps | Plan/Execute/Reflect |
 
 **Right half (green #76B900 background) — NVIDIA:**
 
@@ -242,8 +240,8 @@ Full-width bar split in two halves. White text throughout.
 
 1. VAST AI OS three-plane architecture organizes the entire agent
 2. DataStore → DataEngine → DataBase → InsightEngine → AgentEngine flow is clear
-3. 5 data sources feed 5 DataBase collections (6,049+ vectors)
-4. Knowledge graph + query expansion enrich every search
+3. 5 data sources feed 11 DataBase collections (6,266+ owned vectors, 10 owned + 1 read-only)
+4. Knowledge graph (70+ entities) + query expansion (12 maps, 1,496 terms) enrich every search
 5. Comparative mode auto-detects "X vs Y" queries
 6. Llama 3.1-70B-Instruct generates grounded answers locally with citations
 7. Part of the broader HCLS AI Factory with cross-agent integration on VAST AI OS
