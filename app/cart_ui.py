@@ -156,8 +156,127 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    .stApp { background-color: #0a0a0a; }
+    /* ── Base App ─────────────────────────────────────────── */
+    .stApp { background-color: #0a0a0f; }
 
+    /* ── Streamlit Native Element Overrides ────────────────── */
+    .stApp, .stApp p, .stApp span, .stApp li, .stApp td, .stApp th,
+    .stApp label, .stApp .stMarkdown {
+        color: #ffffff;
+    }
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
+        color: #ffffff;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background-color: #12121a;
+    }
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label {
+        color: #e0e0e8;
+    }
+    section[data-testid="stSidebar"] .stMarkdown h3,
+    section[data-testid="stSidebar"] .stMarkdown h2 {
+        color: #76B900;
+    }
+
+    /* Text input and text area */
+    .stTextInput input, .stTextArea textarea {
+        background-color: #1a1a24 !important;
+        color: #ffffff !important;
+        border: 1px solid #333 !important;
+    }
+    .stTextInput input:focus, .stTextArea textarea:focus {
+        border-color: #76B900 !important;
+        box-shadow: 0 0 0 1px #76B900 !important;
+    }
+
+    /* Select boxes */
+    .stSelectbox > div > div,
+    .stMultiSelect > div > div {
+        background-color: #1a1a24 !important;
+        color: #ffffff !important;
+        border-color: #333 !important;
+    }
+
+    /* Buttons */
+    .stButton > button {
+        background-color: #1a1a24;
+        color: #e0e0e8;
+        border: 1px solid #333;
+        transition: all 0.2s ease;
+    }
+    .stButton > button:hover {
+        background-color: #222230;
+        border-color: #76B900;
+        color: #ffffff;
+    }
+
+    /* Primary button */
+    .stButton > button[kind="primary"] {
+        background-color: #76B900;
+        color: #0a0a0f;
+        border: none;
+        font-weight: 600;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background-color: #8DD100;
+    }
+
+    /* Expander */
+    .streamlit-expanderHeader {
+        background-color: #1a1a24 !important;
+        color: #ffffff !important;
+        border-radius: 8px;
+    }
+    .streamlit-expanderContent {
+        background-color: #12121a !important;
+        border: 1px solid #222230 !important;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: transparent;
+    }
+    .stTabs [data-baseweb="tab"] {
+        color: #a0a0b0;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #76B900 !important;
+    }
+
+    /* Metrics */
+    [data-testid="stMetricValue"] {
+        color: #76B900 !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #a0a0b0 !important;
+    }
+
+    /* Dividers */
+    hr {
+        border-color: #222230 !important;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #0a0a0f;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    /* ── Custom Components ─────────────────────────────────── */
     .main-title {
         font-size: 2rem;
         font-weight: 700;
@@ -166,7 +285,7 @@ st.markdown("""
     }
     .sub-title {
         font-size: 1rem;
-        color: #aaaaaa;
+        color: #a0a0b0;
         margin-bottom: 1.5rem;
     }
 
@@ -181,7 +300,7 @@ st.markdown("""
     .badge-literature { background: #1D6FA4; color: white; }
     .badge-trial { background: #952FC6; color: white; }
     .badge-construct { background: #76B900; color: white; }
-    .badge-assay { background: #F9C500; color: black; }
+    .badge-assay { background: #F9C500; color: #0a0a0f; }
     .badge-manufacturing { background: #DF6500; color: white; }
     .badge-genomic { background: #1DBFA4; color: white; }
     .badge-safety { background: #E53935; color: white; }
@@ -192,11 +311,11 @@ st.markdown("""
 
     .relevance-high { color: #76B900; font-weight: 700; }
     .relevance-medium { color: #F9C500; font-weight: 600; }
-    .relevance-low { color: #888; font-weight: 400; }
+    .relevance-low { color: #6a6a7a; font-weight: 400; }
 
     .evidence-card {
-        background: #1e1e1e;
-        border: 1px solid #333;
+        background: #1a1a24;
+        border: 1px solid #222230;
         border-radius: 8px;
         padding: 12px;
         margin: 6px 0;
@@ -207,10 +326,10 @@ st.markdown("""
         font-size: 0.85rem;
     }
     .evidence-card .snippet {
-        color: #ccc;
+        color: #e0e0e8;
         font-size: 0.85rem;
         margin-top: 6px;
-        line-height: 1.4;
+        line-height: 1.5;
     }
     .evidence-card a {
         color: #76B900;
@@ -992,7 +1111,7 @@ with tab_image:
 
 st.markdown("---")
 st.markdown(
-    "<div style='text-align: center; color: #666; font-size: 0.8rem;'>"
+    "<div style='text-align: center; color: #6a6a7a; font-size: 0.8rem;'>"
     "HCLS AI Factory — CAR-T Intelligence Agent v2.0.0 "
     "| Apache 2.0 | Adam Jones | February 2026"
     "</div>",
