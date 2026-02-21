@@ -324,7 +324,7 @@ class CARTRAGEngine:
     ) -> List[SearchHit]:
         """Use query expansion for additional coverage.
 
-        FIX: Expansion terms that are target antigens use field filters.
+        Expansion terms that are target antigens use field filters.
         Non-antigen terms are re-embedded for semantic search across all collections.
         """
         if not self.expander:

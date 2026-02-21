@@ -34,12 +34,16 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # Load API key from rag-chat-pipeline .env if not already set
 if not os.environ.get("ANTHROPIC_API_KEY"):
-    env_path = Path("/home/adam/projects/hcls-ai-factory/rag-chat-pipeline/.env")
-    if env_path.exists():
-        for line in env_path.read_text().splitlines():
-            if line.startswith("ANTHROPIC_API_KEY="):
-                os.environ["ANTHROPIC_API_KEY"] = line.split("=", 1)[1].strip().strip('"')
-                break
+    from config.settings import settings
+    if settings.ANTHROPIC_API_KEY:
+        os.environ["ANTHROPIC_API_KEY"] = settings.ANTHROPIC_API_KEY
+    else:
+        env_path = settings.RAG_PIPELINE_ROOT / ".env"
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                if line.startswith("ANTHROPIC_API_KEY="):
+                    os.environ["ANTHROPIC_API_KEY"] = line.split("=", 1)[1].strip().strip('"')
+                    break
 
 from src.export import export_markdown, export_json, export_pdf, generate_filename
 
