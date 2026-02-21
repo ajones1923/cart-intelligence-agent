@@ -78,8 +78,8 @@ The platform enables cross-functional queries like *"Why do CD19 CAR-T therapies
                  │                 │                      │
         ┌────────▼────────┐  ┌────▼───────────┐  ┌──────▼──────────┐
         │  Query Expansion │  │ Knowledge Graph │  │ Claude Sonnet   │
-        │  111 keywords    │  │ 25 targets      │  │ 4.6 (Anthropic) │
-        │  → 1,086 terms   │  │ 8 toxicities    │  │ Streaming RAG   │
+        │  169 keywords    │  │ 25 targets      │  │ 4.6 (Anthropic) │
+        │  → 1,496 terms   │  │ 8 toxicities    │  │ Streaming RAG   │
         │  6 categories    │  │ 10 manufacturing │  │ + Comparative   │
         │                  │  │ 18 entity aliases│  │   prompt builder│
         └────────┬────────┘  └────────┬────────┘  └─────────────────┘
@@ -544,7 +544,7 @@ Note: Ingest rate is dominated by BGE-small embedding time (~180ms per text on C
 |---|---|---|
 | Vector database | Milvus | 2.4, localhost:19530 |
 | Embedding model | BGE-small-en-v1.5 | 384-dim, BAAI, ~33M params |
-| LLM | Claude Sonnet 4.6 | Anthropic API, claude-sonnet-4-6 |
+| LLM | Claude Sonnet 4.6 | Anthropic API, claude-sonnet-4-20250514 |
 | UI framework | Streamlit | Port 8521, NVIDIA black/green theme |
 | Data models | Pydantic | BaseModel + Field validation |
 | Configuration | Pydantic BaseSettings | Environment variable support |
@@ -607,7 +607,7 @@ cart_intelligence_agent/
 │   ├── models.py                            # Pydantic data models + ComparativeResult (299 lines)
 │   ├── collections.py                       # Milvus collection schemas + manager (842 lines)
 │   ├── knowledge.py                         # Knowledge graph + entity aliases + comparison (1,030 lines)
-│   ├── query_expansion.py                   # 6 expansion maps, 111→1086 terms (955 lines)
+│   ├── query_expansion.py                   # 12 expansion maps, 169→1496 terms (955 lines)
 │   ├── rag_engine.py                        # Multi-collection RAG + comparative analysis (558 lines)
 │   ├── agent.py                             # CAR-T Intelligence Agent (262 lines)
 │   ├── ingest/

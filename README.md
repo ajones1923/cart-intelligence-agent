@@ -82,7 +82,7 @@ Literature      Trials     Constructs                        |
     +-------+-------+----------+                             |
             |                                                |
             v                                                v
-    [Query Expansion] (6 maps, 111 keywords -> 1,086 terms)
+    [Query Expansion] (12 maps, 169 keywords -> 1,496 terms)
             |
             v
     [Knowledge Graph Augmentation]
@@ -187,7 +187,7 @@ cart_intelligence_agent/
 │   ├── models.py                  # Pydantic data models (16 models + enums)
 │   ├── collections.py             # 11 Milvus collection schemas + manager
 │   ├── knowledge.py               # Knowledge graph (25 targets, 8 toxicities, 10 mfg)
-│   ├── query_expansion.py         # 6 expansion maps (111 keywords -> 1,086 terms)
+│   ├── query_expansion.py         # 12 expansion maps (169 keywords -> 1,496 terms)
 │   ├── rag_engine.py              # Multi-collection RAG engine + comparative analysis + Claude
 │   ├── agent.py                   # CAR-T Intelligence Agent (plan -> search -> synthesize)
 │   ├── ingest/
@@ -220,7 +220,7 @@ cart_intelligence_agent/
 └── LICENSE                        # Apache 2.0
 ```
 
-**23 Python files | ~7,500 lines | Apache 2.0**
+**55 Python files | ~16,748 lines | Apache 2.0**
 
 ## Knowledge Graph
 
@@ -234,8 +234,8 @@ cart_intelligence_agent/
 | Biomarkers | 15 | CRS prediction, T-cell exhaustion, persistence, cytokine panels, ... |
 | Regulatory Histories | 6 | Approval timelines, post-marketing requirements for all FDA products |
 | Immunogenicity Topics | 6 | ADA, immunogenicity assays, risk factors, ... |
-| Query Expansion Maps | 6 | Target Antigen, Disease, Toxicity, Manufacturing, Mechanism, Construct |
-| Expansion Keywords | 111 | Mapping to 1,086 related terms |
+| Query Expansion Maps | 12 | Target Antigen, Disease, Toxicity, Manufacturing, Mechanism, Construct, Safety, Biomarker, Regulatory, Sequence, RealWorld, Immunogenicity |
+| Expansion Keywords | 169 | Mapping to 1,496 related terms |
 
 ## Performance
 
@@ -258,7 +258,7 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128GB unified memory):
 - **Week 1 (Scaffold)** -- Complete. Architecture, data models, collection schemas, knowledge graph, ingest pipelines, RAG engine, agent, and Streamlit UI.
 - **Week 2 Days 1-3 (Data)** -- Complete. PubMed (4,995) + ClinicalTrials.gov (973) + FDA constructs (6) ingested. End-to-end validation passing.
 - **Week 2 Days 4-5 (Integration)** -- Complete. Full RAG pipeline with Claude LLM generating grounded cross-functional answers. Streamlit UI working.
-- **Week 2 Day 5+ (Assay + Manufacturing Data)** -- Complete. 45 curated assay records + 30 manufacturing/CMC records seeded. All 5 collections populated. Total: 6,049 vectors.
+- **Week 2 Day 5+ (Assay + Manufacturing Data)** -- Complete. 45 curated assay records + 30 manufacturing/CMC records seeded. All 11 collections populated (10 owned + 1 read-only). Total: 6,049+ owned vectors.
 - **Week 3 (UI + Analysis)** -- Complete. Clickable PubMed/ClinicalTrials.gov citation links, collapsible evidence panel with collection badges, and **Comparative Analysis Mode** with auto-detection, dual retrieval, entity-grouped evidence, and structured markdown tables.
 
 ## Credits
