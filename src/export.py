@@ -360,6 +360,18 @@ def _format_evidence_table(hits: list[SearchHit], collection_name: str) -> list[
             outcome = m.get("outcome_value", "")
             lines.append(f"| {i} | {hit.id} | {hit.score:.3f} | {stype} | {product} | {pop} | {endpoint} | {outcome} |")
 
+    elif collection_name == "Genomic":
+        lines.append("| # | ID | Score | Gene | Consequence | Impact | Clinical Significance | AlphaMissense |")
+        lines.append("|---|-----|-------|------|-------------|--------|----------------------|---------------|")
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            gene = m.get("gene", "")
+            consequence = m.get("consequence", "")[:25]
+            impact = m.get("impact", "")
+            clin_sig = m.get("clinical_significance", "")[:25]
+            am = m.get("am_class", "")
+            lines.append(f"| {i} | {hit.id} | {hit.score:.3f} | {gene} | {consequence} | {impact} | {clin_sig} | {am} |")
+
     else:
         # Generic fallback
         lines.append("| # | ID | Score | Text |")
@@ -583,6 +595,19 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
                 _trunc(m.get("product", ""), 20),
                 _trunc(m.get("primary_endpoint", ""), 15),
                 _trunc(m.get("outcome_value", ""), 18),
+            ])
+    elif collection_name == "Genomic":
+        header = ["#", "ID", "Score", "Gene", "Consequence", "Impact", "ClinSig", "AM"]
+        rows = [header]
+        for i, hit in enumerate(hits[:10], 1):
+            m = hit.metadata
+            rows.append([
+                str(i), _trunc(hit.id, 25), f"{hit.score:.3f}",
+                _trunc(m.get("gene", ""), 12),
+                _trunc(m.get("consequence", ""), 22),
+                _trunc(m.get("impact", ""), 10),
+                _trunc(m.get("clinical_significance", ""), 20),
+                _trunc(m.get("am_class", ""), 18),
             ])
     else:
         header = ["#", "ID", "Score", "Text"]

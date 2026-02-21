@@ -279,7 +279,7 @@ class TestRetrieve:
         """retrieve() reports the correct number of collections searched."""
         query = AgentQuery(question="test")
         result = rag_engine.retrieve(query)
-        assert result.total_collections_searched == 10
+        assert result.total_collections_searched == 11
 
     def test_with_target_antigen_filter(self, rag_engine):
         """retrieve() accepts a target_antigen filter without error."""
@@ -310,9 +310,9 @@ class TestRetrieve:
 class TestCollectionConfig:
     """Tests for the COLLECTION_CONFIG dictionary."""
 
-    def test_has_10_entries(self):
-        """COLLECTION_CONFIG contains exactly 10 collection entries."""
-        assert len(COLLECTION_CONFIG) == 10
+    def test_has_11_entries(self):
+        """COLLECTION_CONFIG contains exactly 11 collection entries."""
+        assert len(COLLECTION_CONFIG) == 11
 
     def test_expected_collection_names(self):
         """COLLECTION_CONFIG contains all expected collection names."""
@@ -327,6 +327,7 @@ class TestCollectionConfig:
             "cart_regulatory",
             "cart_sequences",
             "cart_realworld",
+            "genomic_evidence",
         }
         assert set(COLLECTION_CONFIG.keys()) == expected
 

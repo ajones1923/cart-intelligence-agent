@@ -1,6 +1,6 @@
 """Multi-collection RAG engine for CAR-T Intelligence Agent.
 
-Searches across all 10 collections simultaneously using parallel ThreadPoolExecutor,
+Searches across all 11 collections simultaneously using parallel ThreadPoolExecutor,
 synthesizes findings with full knowledge graph augmentation (targets, toxicities,
 manufacturing, biomarkers, regulatory), and generates grounded LLM responses.
 
@@ -39,9 +39,10 @@ CART_SYSTEM_PROMPT = """You are a CAR-T cell therapy intelligence agent with dee
 9. **Regulatory Intelligence** — FDA approval pathways, BLA timelines, breakthrough therapy, RMAT, EMA
 10. **Molecular Design** — scFv binding affinity, CDR sequences, humanization, nanobodies, structural data
 11. **Real-World Evidence** — registry outcomes (CIBMTR), community vs academic, special populations, disparities
+12. **Genomic Evidence** — patient variant data, clinical significance (ClinVar), AlphaMissense pathogenicity, gene-level variant analysis
 
 You have access to evidence from MULTIPLE data sources spanning the entire CAR-T development lifecycle,
-from molecular design through post-market pharmacovigilance.
+from patient genomics and molecular design through post-market pharmacovigilance.
 
 When answering questions:
 - **Cite evidence using clickable markdown links** provided in the evidence. Use the exact
@@ -77,6 +78,7 @@ COLLECTION_CONFIG = {
     "cart_regulatory":    {"weight": settings.WEIGHT_REGULATORY,    "label": "Regulatory",     "has_target_antigen": False, "year_field": None},
     "cart_sequences":     {"weight": settings.WEIGHT_SEQUENCES,     "label": "Sequence",       "has_target_antigen": True,  "year_field": None},
     "cart_realworld":     {"weight": settings.WEIGHT_REALWORLD,     "label": "RealWorld",      "has_target_antigen": False, "year_field": None},
+    "genomic_evidence":   {"weight": settings.WEIGHT_GENOMIC,       "label": "Genomic",        "has_target_antigen": False, "year_field": None},
 }
 
 # Known target antigens for expansion term classification

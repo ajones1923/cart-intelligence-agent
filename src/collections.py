@@ -582,6 +582,34 @@ REALWORLD_SCHEMA = CollectionSchema(
 )
 
 
+# ── Genomic Evidence (read-only, created by rag-chat-pipeline) ──────
+
+GENOMIC_EVIDENCE_FIELDS = [
+    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=200),
+    FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=EMBEDDING_DIM),
+    FieldSchema(name="chrom", dtype=DataType.VARCHAR, max_length=10),
+    FieldSchema(name="pos", dtype=DataType.INT64),
+    FieldSchema(name="ref", dtype=DataType.VARCHAR, max_length=500),
+    FieldSchema(name="alt", dtype=DataType.VARCHAR, max_length=500),
+    FieldSchema(name="qual", dtype=DataType.FLOAT),
+    FieldSchema(name="gene", dtype=DataType.VARCHAR, max_length=50),
+    FieldSchema(name="consequence", dtype=DataType.VARCHAR, max_length=100),
+    FieldSchema(name="impact", dtype=DataType.VARCHAR, max_length=20),
+    FieldSchema(name="genotype", dtype=DataType.VARCHAR, max_length=10),
+    FieldSchema(name="text_summary", dtype=DataType.VARCHAR, max_length=2000),
+    FieldSchema(name="clinical_significance", dtype=DataType.VARCHAR, max_length=200),
+    FieldSchema(name="rsid", dtype=DataType.VARCHAR, max_length=20),
+    FieldSchema(name="disease_associations", dtype=DataType.VARCHAR, max_length=500),
+    FieldSchema(name="am_pathogenicity", dtype=DataType.FLOAT),
+    FieldSchema(name="am_class", dtype=DataType.VARCHAR, max_length=30),
+]
+
+GENOMIC_EVIDENCE_SCHEMA = CollectionSchema(
+    fields=GENOMIC_EVIDENCE_FIELDS,
+    description="Genomic variant evidence (read-only, from rag-chat-pipeline)",
+)
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # COLLECTION REGISTRY
 # ═══════════════════════════════════════════════════════════════════════
@@ -597,9 +625,11 @@ COLLECTION_SCHEMAS: Dict[str, CollectionSchema] = {
     "cart_regulatory": REGULATORY_SCHEMA,
     "cart_sequences": SEQUENCE_SCHEMA,
     "cart_realworld": REALWORLD_SCHEMA,
+    "genomic_evidence": GENOMIC_EVIDENCE_SCHEMA,
 }
 
 # Maps collection names to their Pydantic model class for validation
+# genomic_evidence is None because it's read-only (no inserts from this agent)
 COLLECTION_MODELS: Dict[str, type] = {
     "cart_literature": CARTLiterature,
     "cart_trials": ClinicalTrial,
@@ -611,6 +641,7 @@ COLLECTION_MODELS: Dict[str, type] = {
     "cart_regulatory": RegulatoryRecord,
     "cart_sequences": SequenceRecord,
     "cart_realworld": RealWorldRecord,
+    "genomic_evidence": None,
 }
 
 
@@ -620,7 +651,7 @@ COLLECTION_MODELS: Dict[str, type] = {
 
 
 class CARTCollectionManager:
-    """Manages all 10 CAR-T Milvus collections.
+    """Manages 11 CAR-T Milvus collections (10 owned + 1 read-only genomic).
 
     Provides create/drop/insert/search operations across the full set of
     CAR-T domain collections, following the same pymilvus patterns as

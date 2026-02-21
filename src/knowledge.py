@@ -927,6 +927,21 @@ def get_all_context_for_query(query: str) -> str:
             if ctx:
                 sections.append(ctx)
 
+    # Check immunogenicity
+    immuno_keywords = {
+        "murine_scfv_immunogenicity": ["IMMUNOGENICITY", "ADA", "ANTI-DRUG ANTIBOD", "HAMA", "ANTI-MURINE"],
+        "humanization_strategies": ["HUMANIZATION", "HUMANIZED", "CDR GRAFTING", "DEIMMUNIZ", "FRAMEWORK SHUFFL"],
+        "ada_clinical_impact": ["ADA TITER", "NEUTRALIZING ANTIBOD", "ANTI-CAR ANTIBOD"],
+        "hla_restricted_epitopes": ["HLA", "MHC", "T-CELL EPITOPE", "NETCHMII", "NETMHC", "EPIMATRIX"],
+        "immunogenicity_testing": ["IMMUNOGENICITY TEST", "ELISPOT", "DC-T CELL", "MAPPS"],
+        "allogeneic_hla_considerations": ["ALLOGENEIC HLA", "B2M KNOCKOUT", "HLA-E", "TRAC KNOCKOUT", "OFF-THE-SHELF"],
+    }
+    for immuno_id, keywords in immuno_keywords.items():
+        if any(kw in query_upper for kw in keywords):
+            ctx = get_immunogenicity_context(immuno_id)
+            if ctx:
+                sections.append(ctx)
+
     if not sections:
         return ""
 
@@ -944,6 +959,7 @@ def get_knowledge_stats() -> Dict[str, int]:
         "manufacturing_processes": len(CART_MANUFACTURING),
         "biomarkers": len(CART_BIOMARKERS),
         "regulatory_products": len(CART_REGULATORY),
+        "immunogenicity_topics": len(CART_IMMUNOGENICITY),
     }
 
 
@@ -1238,6 +1254,14 @@ ENTITY_ALIASES: Dict[str, Dict[str, str]] = {
     "MRD": {"type": "biomarker", "canonical": "mrd_flow"},
     "SBCMA": {"type": "biomarker", "canonical": "sbcma"},
     "CTDNA": {"type": "biomarker", "canonical": "ctdna"},
+    # Immunogenicity aliases
+    "ADA": {"type": "immunogenicity", "canonical": "murine_scfv_immunogenicity"},
+    "ANTI-DRUG ANTIBODY": {"type": "immunogenicity", "canonical": "murine_scfv_immunogenicity"},
+    "HAMA": {"type": "immunogenicity", "canonical": "murine_scfv_immunogenicity"},
+    "HUMANIZATION": {"type": "immunogenicity", "canonical": "humanization_strategies"},
+    "DEIMMUNIZATION": {"type": "immunogenicity", "canonical": "humanization_strategies"},
+    "HLA": {"type": "immunogenicity", "canonical": "hla_restricted_epitopes"},
+    "MHC": {"type": "immunogenicity", "canonical": "hla_restricted_epitopes"},
 }
 
 
@@ -1286,6 +1310,126 @@ def get_regulatory_context(product: str) -> str:
             lines.append(f"    - {sa['date']}: {sa['indication']} ({sa['trial']})")
     if data.get("ema_approval"):
         lines.append(f"  EMA Approval: {data['ema_approval']}")
+    return "\n".join(lines)
+
+
+# =============================================================================
+# 6. CART_IMMUNOGENICITY — HLA & Immunogenicity knowledge (~6 entries)
+# =============================================================================
+
+CART_IMMUNOGENICITY: Dict[str, Dict[str, Any]] = {
+    "murine_scfv_immunogenicity": {
+        "topic": "Murine scFv Immunogenicity in CAR-T",
+        "description": (
+            "Murine-derived scFvs (e.g., FMC63 in Kymriah/Yescarta/Breyanzi, "
+            "11D5-3 in Abecma) elicit anti-drug antibodies (ADA) in ~3-5% of patients. "
+            "ADA can reduce CAR-T persistence, impair re-dosing efficacy, and rarely "
+            "cause infusion reactions. ELIANA trial: ~5% ADA against FMC63."
+        ),
+        "key_constructs": ["FMC63 (murine anti-CD19)", "SJ25C1 (murine anti-CD19)",
+                           "11D5-3 (murine anti-BCMA)", "14G2a (murine anti-GD2)"],
+        "ada_incidence": "3-8% for murine scFvs, <1% for humanized, <0.5% for fully human",
+        "clinical_impact": "Reduced persistence at 12 months; impaired re-dosing response",
+        "management": "Monitor ADA titers; consider humanized alternatives for re-dosing",
+    },
+    "humanization_strategies": {
+        "topic": "scFv Humanization Strategies for CAR-T",
+        "description": (
+            "Humanization reduces immunogenicity by grafting murine CDRs onto human "
+            "framework regions. Key approaches: (1) CDR grafting onto closest human "
+            "germline (VH3-23, VK1-39 are common acceptors), (2) framework back-mutations "
+            "for affinity retention, (3) deimmunization via T-cell epitope removal, "
+            "(4) fully human binders from phage/yeast display libraries."
+        ),
+        "methods": ["CDR grafting", "Framework shuffling", "Back-mutation optimization",
+                     "Deimmunization (epitope deletion)", "Fully human library selection"],
+        "tools": ["EpiMatrix/EpiVax", "NetMHCIIpan", "IEDB", "AbDesigner", "Rosetta"],
+        "tradeoffs": "Humanization may reduce affinity (1.5-5x); back-mutations partially restore",
+    },
+    "ada_clinical_impact": {
+        "topic": "Clinical Impact of Anti-Drug Antibodies on CAR-T",
+        "description": (
+            "ADA against CAR constructs can: (1) neutralize CAR-T cells (blocking "
+            "scFv-antigen interaction), (2) accelerate clearance via Fc-mediated "
+            "opsonization, (3) cause infusion reactions on re-dosing, (4) activate "
+            "complement-dependent cytotoxicity of CAR-T cells. High-titer ADA "
+            "(>1:1000) correlates with 40% reduced persistence at 6 months."
+        ),
+        "risk_factors": ["Murine scFv origin", "Repeated dosing", "Non-human hinge/spacer",
+                         "High transgene immunogenicity", "Intact immune system (less lymphodepletion)"],
+        "monitoring": "ELISA (screening) → confirmatory (drug tolerance) → titer → neutralizing assay",
+    },
+    "hla_restricted_epitopes": {
+        "topic": "HLA-Restricted T-Cell Epitopes in CAR Constructs",
+        "description": (
+            "MHC class II presentation of CAR-derived peptides drives CD4 T-cell help "
+            "for ADA production. HLA-DRB1*04:01 and HLA-DRB1*15:01 alleles show "
+            "highest risk for FMC63-derived epitope presentation. Computational tools "
+            "(NetMHCIIpan, EpiMatrix) predict 15-20 potential epitopes in murine scFvs "
+            "vs 2-5 in humanized versions."
+        ),
+        "high_risk_alleles": ["HLA-DRB1*04:01", "HLA-DRB1*15:01", "HLA-DRB1*07:01"],
+        "prediction_tools": ["NetMHCIIpan-4.0", "EpiMatrix", "IEDB MHC-II binding"],
+        "epitope_counts": {"murine_FMC63": 18, "humanized_FMC63": 4, "fully_human_CD19": 2},
+    },
+    "immunogenicity_testing": {
+        "topic": "Immunogenicity Testing Paradigm for CAR-T",
+        "description": (
+            "Three-tier testing: (1) In silico: EpiMatrix/NetMHCIIpan T-cell epitope "
+            "prediction, aggregatrix score for epitope clustering. (2) In vitro: DC-T cell "
+            "co-culture, ELISpot for IL-4/IFN-γ, MAPPs (MHC-associated peptide proteomics). "
+            "(3) Clinical: ADA sampling at baseline, day 28, months 3/6/12; tiered approach "
+            "per FDA 2024 guidance."
+        ),
+        "in_silico": ["EpiMatrix", "NetMHCIIpan", "IEDB", "iTope/TCED"],
+        "in_vitro": ["DC-T cell co-culture", "ELISpot (IL-4, IFN-γ)", "MAPPs assay"],
+        "clinical": ["Screening ELISA", "Confirmatory assay", "Titer", "Neutralizing antibody"],
+        "fda_guidance": "FDA 2024: Immunogenicity Testing of Therapeutic Protein Products",
+    },
+    "allogeneic_hla_considerations": {
+        "topic": "HLA Considerations in Allogeneic CAR-T",
+        "description": (
+            "Allogeneic (off-the-shelf) CAR-T requires HLA management to prevent "
+            "graft-versus-host disease (GvHD) and host-versus-graft rejection. "
+            "Strategies: (1) TRAC/TRBC knockout (TALEN or CRISPR) eliminates GvHD, "
+            "(2) B2M knockout removes MHC-I to evade host CD8 T-cells, (3) HLA-E "
+            "overexpression (B2M-HLA-E fusion) prevents NK cell lysis of MHC-I-negative "
+            "cells, (4) CD52 knockout enables alemtuzumab-based lymphodepletion selectivity."
+        ),
+        "gene_edits": ["TRAC KO (prevents GvHD)", "B2M KO (evades CD8 rejection)",
+                        "HLA-E knock-in (NK evasion)", "CD52 KO (alemtuzumab resistance)"],
+        "platforms": ["TALEN (Cellectis UCART)", "CRISPR/Cas9 (CRISPR Therapeutics CTX110)",
+                      "Base editing (Beam BEAM-201)", "iPSC-derived (Fate FT819)"],
+    },
+}
+
+
+def get_immunogenicity_context(topic: str) -> str:
+    """Return formatted knowledge for an immunogenicity topic.
+
+    Args:
+        topic: Topic key or keyword (e.g. 'humanization', 'ada', 'hla').
+
+    Returns:
+        Formatted string with immunogenicity knowledge, or empty string.
+    """
+    key = topic.lower().replace("-", "_").replace(" ", "_")
+    data = CART_IMMUNOGENICITY.get(key)
+    if not data:
+        # Try partial match
+        for k in CART_IMMUNOGENICITY:
+            if key in k.lower():
+                data = CART_IMMUNOGENICITY[k]
+                break
+    if not data:
+        return ""
+
+    lines = [f"## Immunogenicity: {data['topic']}", f"- {data['description']}"]
+    for field in ["ada_incidence", "clinical_impact", "management", "tradeoffs",
+                  "fda_guidance"]:
+        if field in data:
+            label = field.replace("_", " ").title()
+            lines.append(f"- **{label}:** {data[field]}")
     return "\n".join(lines)
 
 

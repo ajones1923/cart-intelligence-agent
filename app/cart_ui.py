@@ -327,6 +327,7 @@ with st.sidebar:
         "cart_regulatory": "Regulatory",
         "cart_sequences": "Sequences",
         "cart_realworld": "Real-World Evidence",
+        "genomic_evidence": "Genomic Evidence",
     }
 
     # Get live stats
@@ -361,6 +362,9 @@ with st.sidebar:
         "Compare the FDA regulatory pathway of Kymriah vs Yescarta",
         "What is the binding affinity of FMC63 scFv?",
         "How do real-world CAR-T outcomes compare between academic and community centers?",
+        "What genomic variants in CD19 or BCMA pathway genes affect CAR-T response?",
+        "What patents cover bispecific CAR-T constructs targeting CD19 and CD22?",
+        "How does scFv humanization reduce immunogenicity risk in CAR-T therapy?",
     ]
     for q in demo_queries:
         if st.button(q, key=f"demo_{q[:20]}"):

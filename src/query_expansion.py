@@ -1070,6 +1070,71 @@ REALWORLD_EXPANSION: Dict[str, List[str]] = {
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# 12. IMMUNOGENICITY_EXPANSION
+#     Maps HLA, ADA, and immunogenicity terms to related concepts
+# ═══════════════════════════════════════════════════════════════════════
+
+IMMUNOGENICITY_EXPANSION: Dict[str, List[str]] = {
+    "hla": [
+        "HLA", "human leukocyte antigen", "MHC", "major histocompatibility complex",
+        "HLA-DRB1", "HLA-A*02:01", "antigen presentation", "T-cell epitope",
+    ],
+    "immunogenicity": [
+        "immunogenicity", "immunogenic", "anti-drug antibody", "ADA",
+        "neutralizing antibody", "binding antibody", "titer",
+        "pre-existing immunity", "HAMA",
+    ],
+    "ada": [
+        "anti-drug antibody", "ADA", "neutralizing antibody", "NAb",
+        "binding antibody", "immunogenicity testing", "tiered assay",
+        "drug tolerance", "ADA incidence",
+    ],
+    "humanization": [
+        "humanization", "humanized", "CDR grafting", "framework selection",
+        "back-mutation", "VH3-23", "VK1-39", "deimmunization",
+        "fully human", "phage display",
+    ],
+    "deimmunization": [
+        "deimmunization", "deimmunized", "T-cell epitope removal",
+        "EpiMatrix", "NetMHCIIpan", "epitope prediction",
+        "framework shuffling", "germline humanization",
+    ],
+    "anti-drug antibody": [
+        "anti-drug antibody", "ADA", "HAMA", "anti-murine antibody",
+        "immunogenicity", "CAR-T persistence", "neutralizing",
+        "infusion reaction", "anaphylaxis",
+    ],
+    "cdr grafting": [
+        "CDR grafting", "complementarity-determining region", "framework region",
+        "humanization", "VH germline", "VL germline", "Kabat numbering",
+    ],
+    "t-cell epitope": [
+        "T-cell epitope", "MHC-II", "HLA-DRB1", "CD4 T helper",
+        "ELISpot", "IFN-gamma", "DC-T cell assay",
+        "in silico prediction", "NetMHCIIpan",
+    ],
+    "elispot": [
+        "ELISpot", "enzyme-linked immunospot", "IFN-gamma spot",
+        "T-cell response", "immunogenicity testing", "in vitro assay",
+    ],
+    "framework shuffling": [
+        "framework shuffling", "framework selection", "germline framework",
+        "VH3 family", "VK1 family", "CDR loop grafting",
+        "thermal stability", "aggregation resistance",
+    ],
+    "hama": [
+        "HAMA", "human anti-mouse antibody", "anti-murine",
+        "murine scFv", "FMC63", "pre-existing immunity",
+        "cross-reactivity", "clearance",
+    ],
+    "netmhciipan": [
+        "NetMHCIIpan", "MHC-II prediction", "epitope prediction",
+        "EpiMatrix", "IEDB", "immunoinformatics", "in silico immunogenicity",
+    ],
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # ALL EXPANSION MAPS — ordered list for iteration
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -1085,6 +1150,7 @@ ALL_EXPANSION_MAPS: List[tuple] = [
     ("Regulatory", REGULATORY_EXPANSION),
     ("Sequence", SEQUENCE_EXPANSION),
     ("RealWorld", REALWORLD_EXPANSION),
+    ("Immunogenicity", IMMUNOGENICITY_EXPANSION),
 ]
 
 

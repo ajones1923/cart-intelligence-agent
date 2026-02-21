@@ -206,6 +206,7 @@ class TestGetKnowledgeStats:
             "manufacturing_processes",
             "biomarkers",
             "regulatory_products",
+            "immunogenicity_topics",
         }
         assert set(stats.keys()) == expected_keys
 

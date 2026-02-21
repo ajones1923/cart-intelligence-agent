@@ -65,6 +65,7 @@ class CARTSettings(BaseSettings):
     WEIGHT_REGULATORY: float = 0.06
     WEIGHT_SEQUENCES: float = 0.06
     WEIGHT_REALWORLD: float = 0.07
+    WEIGHT_GENOMIC: float = 0.04
 
     # ── PubMed ──
     NCBI_API_KEY: Optional[str] = None  # Optional, increases rate limit

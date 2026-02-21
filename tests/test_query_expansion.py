@@ -142,9 +142,9 @@ class TestGetExpansionStats:
     """Tests for the get_expansion_stats() function."""
 
     def test_returns_correct_number_of_categories(self):
-        """get_expansion_stats() returns exactly 11 expansion categories."""
+        """get_expansion_stats() returns exactly 12 expansion categories."""
         stats = get_expansion_stats()
-        assert len(stats) == 11
+        assert len(stats) == 12
 
     def test_each_category_has_keywords_and_total_terms(self):
         """Each category in stats has 'keywords' and 'total_terms' counts."""
@@ -170,9 +170,9 @@ class TestGetExpansionStats:
 class TestAllExpansionMaps:
     """Tests for the ALL_EXPANSION_MAPS registry."""
 
-    def test_has_11_entries(self):
-        """ALL_EXPANSION_MAPS contains exactly 11 expansion map tuples."""
-        assert len(ALL_EXPANSION_MAPS) == 11
+    def test_has_12_entries(self):
+        """ALL_EXPANSION_MAPS contains exactly 12 expansion map tuples."""
+        assert len(ALL_EXPANSION_MAPS) == 12
 
     def test_expected_category_names(self):
         """ALL_EXPANSION_MAPS contains all expected category names."""
@@ -189,6 +189,7 @@ class TestAllExpansionMaps:
             "Regulatory",
             "Sequence",
             "RealWorld",
+            "Immunogenicity",
         ]
         assert names == expected
 
