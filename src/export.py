@@ -1,9 +1,10 @@
-"""Export CAR-T Intelligence Agent query results to Markdown, JSON, and PDF.
+"""Export CAR-T Intelligence Agent query results to Markdown, JSON, PDF, and FHIR R4.
 
-Provides three public functions:
+Provides four public functions:
   - export_markdown() — human-readable report with evidence tables and citations
   - export_json()     — machine-readable structured data using Pydantic serialization
   - export_pdf()      — styled PDF report via reportlab Platypus
+  - export_fhir_r4()  — FHIR R4 DiagnosticReport Bundle for interoperability
 
 Author: Adam Jones
 Date: February 2026
@@ -12,8 +13,9 @@ Date: February 2026
 import io
 import json
 import re
+import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from .models import ComparativeResult, CrossCollectionResult, SearchHit
 
@@ -1249,3 +1251,237 @@ def export_pdf(
 
     doc.build(elements)
     return buffer.getvalue()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# FHIR R4 EXPORT
+# ═══════════════════════════════════════════════════════════════════════
+
+# SNOMED CT codes for CAR-T relevant conditions
+_FHIR_SNOMED_DISEASE_CODES: Dict[str, tuple] = {
+    "b-all": ("91857003", "Acute lymphoblastic leukemia"),
+    "dlbcl": ("277545003", "Diffuse large B-cell lymphoma"),
+    "fl": ("277572003", "Follicular lymphoma"),
+    "mcl": ("277543005", "Mantle cell lymphoma"),
+    "cll": ("51092000", "Chronic lymphocytic leukemia"),
+    "multiple myeloma": ("109989006", "Multiple myeloma"),
+    "myeloma": ("109989006", "Multiple myeloma"),
+}
+
+# LOINC codes for CAR-T observations
+_FHIR_LOINC_CODES: Dict[str, tuple] = {
+    "car_t_report": ("51969-4", "Genetic analysis report"),
+    "therapy_assessment": ("75321-0", "Clinical trial medication assessment"),
+    "adverse_event": ("85893-6", "Adverse event assessment"),
+}
+
+
+def export_fhir_r4(
+    query: str,
+    response_text: str,
+    evidence: Optional[CrossCollectionResult] = None,
+    patient_id: str = "anonymous",
+    target_antigen: Optional[str] = None,
+    disease: Optional[str] = None,
+) -> str:
+    """Export a CAR-T query result as a FHIR R4 Bundle (JSON string).
+
+    Creates a FHIR Bundle of type 'collection' containing:
+      - Patient resource stub
+      - DiagnosticReport with CAR-T analysis summary
+      - Observation resources for key evidence findings
+
+    Parameters
+    ----------
+    query : str
+        The user's original question.
+    response_text : str
+        The LLM-generated response.
+    evidence : CrossCollectionResult, optional
+        Evidence from cross-collection search.
+    patient_id : str
+        Patient identifier (default 'anonymous').
+    target_antigen : str, optional
+        CAR-T target antigen (e.g., 'CD19', 'BCMA').
+    disease : str, optional
+        Disease indication (e.g., 'B-ALL', 'DLBCL').
+
+    Returns
+    -------
+    str
+        FHIR R4 Bundle as a JSON string.
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    entries: List[Dict[str, Any]] = []
+
+    # --- Patient resource ---
+    patient_fullurl = f"urn:uuid:{uuid.uuid4()}"
+    entries.append({
+        "fullUrl": patient_fullurl,
+        "resource": {
+            "resourceType": "Patient",
+            "id": patient_id,
+            "identifier": [{
+                "system": "urn:hcls-ai-factory:cart-intelligence",
+                "value": patient_id,
+            }],
+            "active": True,
+        },
+    })
+
+    # --- Observation resources from evidence ---
+    observation_refs: List[str] = []
+
+    if evidence:
+        # Create observations grouped by collection
+        for hit in evidence.hits[:20]:  # Cap to 20 observations
+            obs_fullurl = f"urn:uuid:{uuid.uuid4()}"
+            observation_refs.append(obs_fullurl)
+
+            observation: Dict[str, Any] = {
+                "fullUrl": obs_fullurl,
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": str(uuid.uuid4()),
+                    "status": "final",
+                    "category": [{
+                        "coding": [{
+                            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                            "code": "laboratory",
+                            "display": "Laboratory",
+                        }],
+                    }],
+                    "code": {
+                        "coding": [{
+                            "system": "http://loinc.org",
+                            "code": _FHIR_LOINC_CODES["car_t_report"][0],
+                            "display": _FHIR_LOINC_CODES["car_t_report"][1],
+                        }],
+                        "text": f"CAR-T Evidence: {hit.collection}",
+                    },
+                    "subject": {"reference": patient_fullurl},
+                    "effectiveDateTime": now_iso,
+                    "valueString": hit.text[:500],
+                    "component": [],
+                },
+            }
+
+            # Add source metadata as components
+            if hit.metadata.get("target_antigen"):
+                observation["resource"]["component"].append({
+                    "code": {"text": "Target Antigen"},
+                    "valueString": hit.metadata["target_antigen"],
+                })
+            if hit.metadata.get("product"):
+                observation["resource"]["component"].append({
+                    "code": {"text": "Product"},
+                    "valueString": hit.metadata["product"],
+                })
+            if hit.metadata.get("event_type"):
+                observation["resource"]["component"].append({
+                    "code": {"text": "Event Type"},
+                    "valueString": hit.metadata["event_type"],
+                })
+
+            # Add relevance score
+            observation["resource"]["component"].append({
+                "code": {"text": "Relevance Score"},
+                "valueQuantity": {
+                    "value": hit.score,
+                    "unit": "{score}",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "{score}",
+                },
+            })
+
+            entries.append(observation)
+
+    # --- Condition resource (if disease specified) ---
+    if disease:
+        disease_key = disease.lower().strip()
+        disease_coding = _FHIR_SNOMED_DISEASE_CODES.get(disease_key)
+        if disease_coding:
+            condition_fullurl = f"urn:uuid:{uuid.uuid4()}"
+            entries.append({
+                "fullUrl": condition_fullurl,
+                "resource": {
+                    "resourceType": "Condition",
+                    "id": str(uuid.uuid4()),
+                    "clinicalStatus": {
+                        "coding": [{
+                            "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                            "code": "active",
+                            "display": "Active",
+                        }],
+                    },
+                    "code": {
+                        "coding": [{
+                            "system": "http://snomed.info/sct",
+                            "code": disease_coding[0],
+                            "display": disease_coding[1],
+                        }],
+                        "text": disease,
+                    },
+                    "subject": {"reference": patient_fullurl},
+                    "recordedDate": now_iso,
+                },
+            })
+
+    # --- DiagnosticReport resource ---
+    report_fullurl = f"urn:uuid:{uuid.uuid4()}"
+    diagnostic_report: Dict[str, Any] = {
+        "resourceType": "DiagnosticReport",
+        "id": str(uuid.uuid4()),
+        "status": "final",
+        "category": [{
+            "coding": [{
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                "code": "GE",
+                "display": "Genetics",
+            }],
+        }],
+        "code": {
+            "coding": [{
+                "system": "http://loinc.org",
+                "code": _FHIR_LOINC_CODES["car_t_report"][0],
+                "display": _FHIR_LOINC_CODES["car_t_report"][1],
+            }],
+            "text": "CAR-T Intelligence Agent Report",
+        },
+        "subject": {"reference": patient_fullurl},
+        "effectiveDateTime": now_iso,
+        "issued": now_iso,
+        "performer": [{
+            "display": "HCLS AI Factory - CAR-T Intelligence Agent",
+        }],
+        "result": [{"reference": ref} for ref in observation_refs],
+        "conclusion": response_text[:2000],
+    }
+
+    # Add target antigen as extension
+    if target_antigen:
+        diagnostic_report["extension"] = [{
+            "url": "urn:hcls-ai-factory:cart:target-antigen",
+            "valueString": target_antigen,
+        }]
+
+    entries.append({
+        "fullUrl": report_fullurl,
+        "resource": diagnostic_report,
+    })
+
+    # --- Build Bundle ---
+    bundle: Dict[str, Any] = {
+        "resourceType": "Bundle",
+        "id": str(uuid.uuid4()),
+        "type": "collection",
+        "timestamp": now_iso,
+        "meta": {
+            "profile": [
+                "http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomics-report",
+            ],
+        },
+        "entry": entries,
+    }
+
+    return json.dumps(bundle, indent=2)
