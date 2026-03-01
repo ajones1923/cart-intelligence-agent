@@ -26,6 +26,7 @@ from typing import Dict, List, Optional
 
 from .knowledge import CART_TARGETS
 from .models import AgentQuery, AgentResponse, CARTStage, CrossCollectionResult
+from .rag_engine import CART_SYSTEM_PROMPT
 
 
 @dataclass
@@ -101,8 +102,14 @@ class CARTIntelligenceAgent:
                 sub_evidence = self.rag.retrieve(sub_query)
                 evidence.hits.extend(sub_evidence.hits)
 
-        # Phase 5: Generate answer
-        answer = self.rag.query(question, **kwargs)
+        # Phase 5: Generate answer (reuse already-retrieved evidence)
+        prompt = self.rag._build_prompt(question, evidence)
+        answer = self.rag.llm.generate(
+            prompt=prompt,
+            system_prompt=CART_SYSTEM_PROMPT,
+            max_tokens=2048,
+            temperature=0.7,
+        )
 
         # Phase 6: Identify knowledge used
         knowledge_used = []
@@ -162,6 +169,13 @@ class CARTIntelligenceAgent:
         for stage, keywords in stage_keywords.items():
             if any(kw in q_upper for kw in keywords):
                 plan.relevant_stages.append(stage)
+
+        # Identify topics from matched stages
+        for stage in plan.relevant_stages:
+            plan.identified_topics.append(stage.value)
+
+        if plan.target_antigens:
+            plan.identified_topics.extend(plan.target_antigens)
 
         # Determine search strategy
         if "COMPARE" in q_upper or " VS " in q_upper or "VERSUS" in q_upper:

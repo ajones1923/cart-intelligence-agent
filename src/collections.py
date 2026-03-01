@@ -1,6 +1,6 @@
 """Milvus collection management for CAR-T Intelligence Agent.
 
-Manages 10 domain-specific collections:
+Manages 11 CAR-T collections (10 domain-specific + 1 read-only genomic):
   - cart_literature    — Published research & patents
   - cart_trials        — ClinicalTrials.gov records
   - cart_constructs    — CAR construct designs
@@ -721,7 +721,7 @@ class CARTCollectionManager:
         """Create a single collection with IVF_FLAT index on the embedding field.
 
         Args:
-            name: Collection name (must be one of the 5 CAR-T collections).
+            name: Collection name (must be a recognized CAR-T or genomic collection).
             schema: The CollectionSchema defining the fields.
             drop_existing: If True, drop the collection first if it already exists.
 
@@ -753,7 +753,7 @@ class CARTCollectionManager:
         return collection
 
     def create_all_collections(self, drop_existing: bool = False) -> Dict[str, Collection]:
-        """Create all 5 CAR-T collections.
+        """Create all 11 CAR-T collections (10 domain + 1 read-only genomic).
 
         Args:
             drop_existing: If True, drop and recreate each collection.
@@ -761,7 +761,7 @@ class CARTCollectionManager:
         Returns:
             Dict mapping collection name to Collection object.
         """
-        logger.info("Creating all 10 CAR-T collections")
+        logger.info(f"Creating all {len(COLLECTION_SCHEMAS)} CAR-T collections")
         for name, schema in COLLECTION_SCHEMAS.items():
             self.create_collection(name, schema, drop_existing=drop_existing)
         logger.info(f"All {len(COLLECTION_SCHEMAS)} collections ready")
