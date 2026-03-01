@@ -35,7 +35,7 @@ def generate_filename(extension: str) -> str:
     Returns:
         Filename like cart_query_20260219_143025.md
     """
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return f"cart_query_{ts}.{extension}"
 
 
@@ -388,57 +388,199 @@ def _format_evidence_table(hits: list[SearchHit], collection_name: str) -> list[
 # ═══════════════════════════════════════════════════════════════════════
 
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
+    BaseDocTemplate,
+    CondPageBreak,
+    Frame,
     HRFlowable,
+    KeepTogether,
+    NextPageTemplate,
+    PageBreak,
+    PageTemplate,
     Paragraph,
-    SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
 )
 
-# PDF color palette
+# ── PDF color palette ────────────────────────────────────────────────
 _NVIDIA_GREEN = colors.HexColor("#76B900")
-_DARK_BG = colors.HexColor("#1a1a1a")
-_TABLE_ALT = colors.HexColor("#f0f0f0")
-_LIGHT_GRAY = colors.HexColor("#666666")
+_NVIDIA_GREEN_DARK = colors.HexColor("#5A8F00")
+_DARK_BG = colors.HexColor("#1B1B2F")
+_DARK_BG2 = colors.HexColor("#162447")
+_TABLE_ALT = colors.HexColor("#F7F9FC")
+_TABLE_BORDER = colors.HexColor("#E2E8F0")
+_LIGHT_GRAY = colors.HexColor("#64748B")
+_MEDIUM_GRAY = colors.HexColor("#94A3B8")
+_TEXT_PRIMARY = colors.HexColor("#1E293B")
+_TEXT_SECONDARY = colors.HexColor("#475569")
+_INFO_BG = colors.HexColor("#F0FDF4")
+_INFO_BORDER = colors.HexColor("#BBF7D0")
+_SECTION_BG = colors.HexColor("#F8FAFC")
+_WHITE = colors.white
 
+# Collection accent colors for evidence table headers
+_COLLECTION_COLORS = {
+    "Literature":    colors.HexColor("#2563EB"),  # blue
+    "Trial":         colors.HexColor("#7C3AED"),  # violet
+    "Construct":     colors.HexColor("#059669"),  # emerald
+    "Assay":         colors.HexColor("#D97706"),  # amber
+    "Manufacturing": colors.HexColor("#DC2626"),  # red
+    "Safety":        colors.HexColor("#E11D48"),  # rose
+    "Biomarker":     colors.HexColor("#0891B2"),  # cyan
+    "Regulatory":    colors.HexColor("#4F46E5"),  # indigo
+    "Sequence":      colors.HexColor("#0D9488"),  # teal
+    "RealWorld":     colors.HexColor("#CA8A04"),  # yellow
+    "Genomic":       colors.HexColor("#9333EA"),  # purple
+}
+
+_PAGE_W, _PAGE_H = letter
+_MARGIN_L = 0.65 * inch
+_MARGIN_R = 0.65 * inch
+_MARGIN_T = 0.85 * inch   # room for running header
+_MARGIN_B = 0.75 * inch   # room for branded footer
+_CONTENT_W = _PAGE_W - _MARGIN_L - _MARGIN_R
+
+
+# ── Page decoration callbacks ────────────────────────────────────────
+
+def _first_page(canvas, doc):
+    """Draw branded header banner on the first page."""
+    canvas.saveState()
+    # Dark gradient header bar
+    _h = 62
+    canvas.setFillColor(_DARK_BG)
+    canvas.rect(0, _PAGE_H - _h, _PAGE_W, _h, fill=1, stroke=0)
+    # Green accent strip under the dark bar
+    canvas.setFillColor(_NVIDIA_GREEN)
+    canvas.rect(0, _PAGE_H - _h - 3, _PAGE_W, 3, fill=1, stroke=0)
+    # Title text
+    canvas.setFillColor(_WHITE)
+    canvas.setFont("Helvetica-Bold", 20)
+    canvas.drawString(_MARGIN_L, _PAGE_H - 42, "CAR-T Intelligence Report")
+    # Version badge
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(_NVIDIA_GREEN)
+    canvas.drawRightString(_PAGE_W - _MARGIN_R, _PAGE_H - 30, f"v{VERSION}")
+    canvas.setFillColor(_MEDIUM_GRAY)
+    canvas.drawRightString(_PAGE_W - _MARGIN_R, _PAGE_H - 42,
+                           "HCLS AI Factory")
+    # Footer
+    _draw_footer(canvas, doc)
+    canvas.restoreState()
+
+
+def _later_pages(canvas, doc):
+    """Draw running header + footer on continuation pages."""
+    canvas.saveState()
+    # Thin dark header bar
+    _h = 28
+    canvas.setFillColor(_DARK_BG)
+    canvas.rect(0, _PAGE_H - _h, _PAGE_W, _h, fill=1, stroke=0)
+    canvas.setFillColor(_NVIDIA_GREEN)
+    canvas.rect(0, _PAGE_H - _h - 2, _PAGE_W, 2, fill=1, stroke=0)
+    canvas.setFillColor(_WHITE)
+    canvas.setFont("Helvetica-Bold", 9)
+    canvas.drawString(_MARGIN_L, _PAGE_H - 19, "CAR-T Intelligence Report")
+    canvas.setFont("Helvetica", 7)
+    canvas.setFillColor(_MEDIUM_GRAY)
+    canvas.drawRightString(_PAGE_W - _MARGIN_R, _PAGE_H - 19,
+                           "HCLS AI Factory")
+    # Footer
+    _draw_footer(canvas, doc)
+    canvas.restoreState()
+
+
+def _draw_footer(canvas, doc):
+    """Branded footer with green bar, version, and page number."""
+    y = _MARGIN_B - 20
+    # Green accent line
+    canvas.setStrokeColor(_NVIDIA_GREEN)
+    canvas.setLineWidth(1.5)
+    canvas.line(_MARGIN_L, y + 14, _PAGE_W - _MARGIN_R, y + 14)
+    # Left: branding
+    canvas.setFont("Helvetica", 7)
+    canvas.setFillColor(_LIGHT_GRAY)
+    canvas.drawString(_MARGIN_L, y,
+                      f"HCLS AI Factory  |  CAR-T Intelligence Agent v{VERSION}")
+    # Right: page number
+    canvas.drawRightString(_PAGE_W - _MARGIN_R, y,
+                           f"Page {doc.page}")
+
+
+# ── Style builder ────────────────────────────────────────────────────
 
 def _build_pdf_styles() -> dict:
     """Build custom ParagraphStyles for the PDF report."""
     base = getSampleStyleSheet()
     return {
-        "title": ParagraphStyle(
-            "PDFTitle", parent=base["Title"],
-            fontSize=22, textColor=_NVIDIA_GREEN, spaceAfter=4,
-        ),
         "h2": ParagraphStyle(
             "PDFH2", parent=base["Heading2"],
-            fontSize=14, textColor=_NVIDIA_GREEN, spaceBefore=14, spaceAfter=6,
+            fontSize=14, leading=18,
+            textColor=_DARK_BG, fontName="Helvetica-Bold",
+            spaceBefore=16, spaceAfter=8,
+            borderPadding=(0, 0, 2, 0),
+            keepWithNext=1,
+        ),
+        "h2_green": ParagraphStyle(
+            "PDFH2G", parent=base["Heading2"],
+            fontSize=13, leading=17,
+            textColor=_NVIDIA_GREEN_DARK, fontName="Helvetica-Bold",
+            spaceBefore=14, spaceAfter=6,
+            keepWithNext=1,
         ),
         "h3": ParagraphStyle(
             "PDFH3", parent=base["Heading3"],
-            fontSize=11, textColor=colors.HexColor("#333333"),
+            fontSize=11, leading=14,
+            textColor=_TEXT_PRIMARY, fontName="Helvetica-Bold",
             spaceBefore=10, spaceAfter=4,
+            keepWithNext=1,
         ),
         "body": ParagraphStyle(
             "PDFBody", parent=base["BodyText"],
-            fontSize=9, leading=13, spaceAfter=6,
+            fontSize=10, leading=15, spaceAfter=7,
+            textColor=_TEXT_PRIMARY,
         ),
-        "meta": ParagraphStyle(
-            "PDFMeta", parent=base["BodyText"],
-            fontSize=9, textColor=_LIGHT_GRAY, spaceAfter=2,
+        "body_sm": ParagraphStyle(
+            "PDFBodySm", parent=base["BodyText"],
+            fontSize=9, leading=13, spaceAfter=5,
+            textColor=_TEXT_SECONDARY,
+        ),
+        "meta_label": ParagraphStyle(
+            "PDFMetaL", parent=base["BodyText"],
+            fontSize=8, leading=11,
+            textColor=_LIGHT_GRAY, fontName="Helvetica-Bold",
+            spaceAfter=1,
+        ),
+        "meta_value": ParagraphStyle(
+            "PDFMetaV", parent=base["BodyText"],
+            fontSize=10, leading=14,
+            textColor=_TEXT_PRIMARY,
+            spaceAfter=6,
         ),
         "footer": ParagraphStyle(
             "PDFFooter", parent=base["BodyText"],
-            fontSize=8, textColor=_LIGHT_GRAY, alignment=1,
+            fontSize=8, textColor=_LIGHT_GRAY, alignment=TA_CENTER,
             spaceBefore=12,
+        ),
+        "summary_num": ParagraphStyle(
+            "SummaryNum", parent=base["BodyText"],
+            fontSize=18, leading=22, fontName="Helvetica-Bold",
+            textColor=_NVIDIA_GREEN_DARK, alignment=TA_CENTER,
+        ),
+        "summary_label": ParagraphStyle(
+            "SummaryLabel", parent=base["BodyText"],
+            fontSize=7, leading=10,
+            textColor=_LIGHT_GRAY, alignment=TA_CENTER,
         ),
     }
 
+
+# ── Utility helpers ──────────────────────────────────────────────────
 
 def _pdf_escape(text: str) -> str:
     """Escape text for reportlab Paragraph XML."""
@@ -452,53 +594,135 @@ def _pdf_citation_link(collection: str, record_id: str) -> str:
     """Build a reportlab <a> tag for clickable citations in PDF."""
     if collection == "Literature" and record_id.isdigit():
         url = f"https://pubmed.ncbi.nlm.nih.gov/{record_id}/"
-        return f'<a href="{url}" color="#76B900">PMID {record_id}</a>'
+        return f'<a href="{url}" color="#2563EB"><u>PMID {record_id}</u></a>'
     if collection == "Trial" and record_id.upper().startswith("NCT"):
         url = f"https://clinicaltrials.gov/study/{record_id}"
-        return f'<a href="{url}" color="#76B900">{record_id}</a>'
+        return f'<a href="{url}" color="#7C3AED"><u>{record_id}</u></a>'
     return _pdf_escape(record_id)
 
 
-def _trunc(text, max_len: int = 40) -> str:
+def _trunc(text, max_len: int = 50) -> str:
     """Truncate and escape text for PDF table cells."""
-    s = str(text)[:max_len]
+    s = str(text)
+    if len(s) > max_len:
+        s = s[:max_len - 1] + "\u2026"
     return _pdf_escape(s)
 
 
-def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
-    """Build a reportlab Table for hits from a single collection.
+# ── Query info card ──────────────────────────────────────────────────
 
-    Returns a list of flowables: [heading Paragraph, Table].
+def _build_query_card(query: str, timestamp: str, filters_str: str,
+                      styles: dict) -> list:
+    """Build a styled info card for query metadata."""
+    card_data = [
+        [Paragraph('<font color="#64748B"><b>QUERY</b></font>', styles["meta_label"]),
+         Paragraph('<font color="#64748B"><b>GENERATED</b></font>', styles["meta_label"]),
+         Paragraph('<font color="#64748B"><b>FILTERS</b></font>', styles["meta_label"])],
+        [Paragraph(_pdf_escape(query), styles["meta_value"]),
+         Paragraph(timestamp, styles["meta_value"]),
+         Paragraph(_pdf_escape(filters_str), styles["meta_value"])],
+    ]
+    card = Table(card_data, colWidths=[_CONTENT_W * 0.50, _CONTENT_W * 0.25,
+                                       _CONTENT_W * 0.25])
+    card.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), _INFO_BG),
+        ("BOX", (0, 0), (-1, -1), 0.75, _INFO_BORDER),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LINEBELOW", (0, 0), (-1, 0), 0, _INFO_BG),
+    ]))
+    return [card, Spacer(1, 14)]
+
+
+# ── Evidence summary card ────────────────────────────────────────────
+
+def _build_summary_card(evidence=None, comp_result=None) -> list:
+    """Build a compact summary card showing key search metrics."""
+    styles = _build_pdf_styles()
+
+    if comp_result and comp_result.total_hits > 0:
+        total = comp_result.total_hits
+        colls = "Comparative"
+        time_ms = comp_result.total_search_time_ms
+    elif evidence and evidence.hit_count > 0:
+        total = evidence.hit_count
+        colls = str(evidence.total_collections_searched)
+        time_ms = evidence.search_time_ms
+    else:
+        return []
+
+    cells = [
+        [Paragraph(f"<b>{total}</b>", styles["summary_num"]),
+         Paragraph(f"<b>{colls}</b>", styles["summary_num"]),
+         Paragraph(f"<b>{time_ms:.0f}ms</b>", styles["summary_num"])],
+        [Paragraph("Total Results", styles["summary_label"]),
+         Paragraph("Collections", styles["summary_label"]),
+         Paragraph("Search Time", styles["summary_label"])],
+    ]
+    w = _CONTENT_W / 3
+    tbl = Table(cells, colWidths=[w, w, w])
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), _SECTION_BG),
+        ("BOX", (0, 0), (-1, -1), 0.75, _TABLE_BORDER),
+        ("LINEAFTER", (0, 0), (0, -1), 0.5, _TABLE_BORDER),
+        ("LINEAFTER", (1, 0), (1, -1), 0.5, _TABLE_BORDER),
+        ("TOPPADDING", (0, 0), (-1, 0), 10),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 10),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]))
+    return [tbl, Spacer(1, 14)]
+
+
+# ── Evidence tables ──────────────────────────────────────────────────
+
+def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
+    """Build a styled evidence table for hits from a single collection.
+
+    Returns a list of flowables wrapped in KeepTogether where possible.
     """
     styles = _build_pdf_styles()
+    accent = _COLLECTION_COLORS.get(collection_name, _NVIDIA_GREEN)
+    # Get hex string for XML color attributes
+    _accent_hex = (f"#{int(accent.red*255):02x}{int(accent.green*255):02x}"
+                   f"{int(accent.blue*255):02x}") if hasattr(accent, 'red') else "#76B900"
+
+    # Section heading with colored accent pip
+    heading_text = (f'<font color="{_accent_hex}">'
+                    f'\u275A</font>  '
+                    f'{_pdf_escape(collection_name)} '
+                    f'<font color="#94A3B8">({len(hits)} results)</font>')
     flowables = [
-        Paragraph(f"{_pdf_escape(collection_name)} ({len(hits)} results)", styles["h3"]),
+        Paragraph(heading_text, styles["h3"]),
     ]
 
     # Collection-specific columns
     if collection_name == "Literature":
-        header = ["#", "ID", "Score", "Source", "Title", "Year", "Target"]
+        header = ["#", "Source", "Score", "Title", "Year", "Target"]
         rows = [header]
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 12), f"{hit.score:.3f}",
-                _pdf_citation_link(hit.collection, hit.id),
-                _trunc(m.get("title", ""), 50),
+                str(i), _pdf_citation_link(hit.collection, hit.id),
+                f"{hit.score:.3f}",
+                _trunc(m.get("title", ""), 55),
                 str(m.get("year", "")),
-                _trunc(m.get("target_antigen", ""), 15),
+                _trunc(m.get("target_antigen", ""), 18),
             ])
     elif collection_name == "Trial":
-        header = ["#", "NCT ID", "Score", "Source", "Phase", "Status", "Sponsor"]
+        header = ["#", "NCT ID", "Score", "Phase", "Status", "Sponsor"]
         rows = [header]
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 14), f"{hit.score:.3f}",
-                _pdf_citation_link(hit.collection, hit.id),
-                _trunc(m.get("phase", ""), 18),
-                _trunc(m.get("status", ""), 20),
-                _trunc(m.get("sponsor", ""), 30),
+                str(i), _pdf_citation_link(hit.collection, hit.id),
+                f"{hit.score:.3f}",
+                _trunc(m.get("phase", ""), 20),
+                _trunc(m.get("status", ""), 22),
+                _trunc(m.get("sponsor", ""), 35),
             ])
     elif collection_name == "Construct":
         header = ["#", "ID", "Score", "Name", "Gen", "Costim", "FDA"]
@@ -506,24 +730,24 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 20), f"{hit.score:.3f}",
-                _trunc(m.get("name", ""), 30),
-                _trunc(m.get("generation", ""), 8),
-                _trunc(m.get("costimulatory_domain", ""), 18),
-                _trunc(m.get("fda_status", ""), 12),
+                str(i), _trunc(hit.id, 24), f"{hit.score:.3f}",
+                _trunc(m.get("name", ""), 35),
+                _trunc(m.get("generation", ""), 10),
+                _trunc(m.get("costimulatory_domain", ""), 20),
+                _trunc(m.get("fda_status", ""), 14),
             ])
     elif collection_name == "Assay":
-        header = ["#", "ID", "Score", "Type", "Cell Line", "Metric", "Value", "Out"]
+        header = ["#", "ID", "Score", "Type", "Cell Line", "Metric", "Value", "Outcome"]
         rows = [header]
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 25), f"{hit.score:.3f}",
-                _trunc(m.get("assay_type", ""), 15),
-                _trunc(m.get("cell_line", ""), 18),
-                _trunc(m.get("key_metric", ""), 20),
+                str(i), _trunc(hit.id, 28), f"{hit.score:.3f}",
+                _trunc(m.get("assay_type", ""), 18),
+                _trunc(m.get("cell_line", ""), 20),
+                _trunc(m.get("key_metric", ""), 22),
                 str(m.get("metric_value", "")),
-                _trunc(m.get("outcome", ""), 10),
+                _trunc(m.get("outcome", ""), 12),
             ])
     elif collection_name == "Manufacturing":
         header = ["#", "ID", "Score", "Step", "Parameter", "Batch"]
@@ -531,10 +755,10 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 25), f"{hit.score:.3f}",
-                _trunc(m.get("process_step", ""), 18),
-                _trunc(m.get("parameter", ""), 30),
-                _trunc(m.get("batch_id", ""), 15),
+                str(i), _trunc(hit.id, 28), f"{hit.score:.3f}",
+                _trunc(m.get("process_step", ""), 22),
+                _trunc(m.get("parameter", ""), 35),
+                _trunc(m.get("batch_id", ""), 18),
             ])
     elif collection_name == "Safety":
         header = ["#", "ID", "Score", "Product", "Event", "Severity", "Source"]
@@ -542,11 +766,11 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 25), f"{hit.score:.3f}",
-                _trunc(m.get("product", ""), 22),
-                _trunc(m.get("event_type", ""), 15),
-                _trunc(m.get("severity_grade", ""), 12),
-                _trunc(m.get("reporting_source", ""), 15),
+                str(i), _trunc(hit.id, 28), f"{hit.score:.3f}",
+                _trunc(m.get("product", ""), 25),
+                _trunc(m.get("event_type", ""), 18),
+                _trunc(m.get("severity_grade", ""), 14),
+                _trunc(m.get("reporting_source", ""), 18),
             ])
     elif collection_name == "Biomarker":
         header = ["#", "ID", "Score", "Biomarker", "Type", "Method", "Cutoff"]
@@ -554,11 +778,11 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 25), f"{hit.score:.3f}",
-                _trunc(m.get("biomarker_name", ""), 18),
-                _trunc(m.get("biomarker_type", ""), 15),
-                _trunc(m.get("assay_method", ""), 18),
-                _trunc(m.get("clinical_cutoff", ""), 18),
+                str(i), _trunc(hit.id, 28), f"{hit.score:.3f}",
+                _trunc(m.get("biomarker_name", ""), 22),
+                _trunc(m.get("biomarker_type", ""), 18),
+                _trunc(m.get("assay_method", ""), 20),
+                _trunc(m.get("clinical_cutoff", ""), 20),
             ])
     elif collection_name == "Regulatory":
         header = ["#", "ID", "Score", "Product", "Event", "Date", "Agency"]
@@ -566,11 +790,11 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 25), f"{hit.score:.3f}",
-                _trunc(m.get("product", ""), 22),
-                _trunc(m.get("regulatory_event", ""), 20),
-                _trunc(m.get("date", ""), 10),
-                _trunc(m.get("agency", ""), 6),
+                str(i), _trunc(hit.id, 28), f"{hit.score:.3f}",
+                _trunc(m.get("product", ""), 25),
+                _trunc(m.get("regulatory_event", ""), 22),
+                _trunc(m.get("date", ""), 12),
+                _trunc(m.get("agency", ""), 8),
             ])
     elif collection_name == "Sequence":
         header = ["#", "ID", "Score", "Construct", "Target", "Clone", "Kd"]
@@ -578,11 +802,11 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 20), f"{hit.score:.3f}",
-                _trunc(m.get("construct_name", ""), 22),
-                _trunc(m.get("target_antigen", ""), 10),
-                _trunc(m.get("scfv_clone", ""), 15),
-                _trunc(m.get("binding_affinity_kd", ""), 10),
+                str(i), _trunc(hit.id, 24), f"{hit.score:.3f}",
+                _trunc(m.get("construct_name", ""), 25),
+                _trunc(m.get("target_antigen", ""), 12),
+                _trunc(m.get("scfv_clone", ""), 18),
+                _trunc(m.get("binding_affinity_kd", ""), 12),
             ])
     elif collection_name == "RealWorld":
         header = ["#", "ID", "Score", "Type", "Product", "Endpoint", "Outcome"]
@@ -590,11 +814,11 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 20), f"{hit.score:.3f}",
-                _trunc(m.get("study_type", ""), 15),
-                _trunc(m.get("product", ""), 20),
-                _trunc(m.get("primary_endpoint", ""), 15),
-                _trunc(m.get("outcome_value", ""), 18),
+                str(i), _trunc(hit.id, 24), f"{hit.score:.3f}",
+                _trunc(m.get("study_type", ""), 18),
+                _trunc(m.get("product", ""), 22),
+                _trunc(m.get("primary_endpoint", ""), 18),
+                _trunc(m.get("outcome_value", ""), 20),
             ])
     elif collection_name == "Genomic":
         header = ["#", "ID", "Score", "Gene", "Consequence", "Impact", "ClinSig", "AM"]
@@ -602,26 +826,27 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
         for i, hit in enumerate(hits[:10], 1):
             m = hit.metadata
             rows.append([
-                str(i), _trunc(hit.id, 25), f"{hit.score:.3f}",
-                _trunc(m.get("gene", ""), 12),
-                _trunc(m.get("consequence", ""), 22),
-                _trunc(m.get("impact", ""), 10),
-                _trunc(m.get("clinical_significance", ""), 20),
-                _trunc(m.get("am_class", ""), 18),
+                str(i), _trunc(hit.id, 28), f"{hit.score:.3f}",
+                _trunc(m.get("gene", ""), 14),
+                _trunc(m.get("consequence", ""), 24),
+                _trunc(m.get("impact", ""), 12),
+                _trunc(m.get("clinical_significance", ""), 22),
+                _trunc(m.get("am_class", ""), 20),
             ])
     else:
         header = ["#", "ID", "Score", "Text"]
         rows = [header]
         for i, hit in enumerate(hits[:10], 1):
             rows.append([
-                str(i), _trunc(hit.id, 20), f"{hit.score:.3f}",
-                _trunc(hit.text, 60),
+                str(i), _trunc(hit.id, 24), f"{hit.score:.3f}",
+                _trunc(hit.text, 70),
             ])
 
-    # Convert string cells to Paragraphs for wrapping
-    body_style = ParagraphStyle("Cell", fontSize=7, leading=9)
-    header_style = ParagraphStyle("CellH", fontSize=7, leading=9,
-                                  textColor=colors.white, fontName="Helvetica-Bold")
+    # Convert cells to Paragraphs for proper wrapping
+    body_style = ParagraphStyle("Cell", fontSize=8, leading=10,
+                                textColor=_TEXT_PRIMARY)
+    header_style = ParagraphStyle("CellH", fontSize=8, leading=10,
+                                  textColor=_WHITE, fontName="Helvetica-Bold")
     para_rows = []
     for r_idx, row in enumerate(rows):
         style = header_style if r_idx == 0 else body_style
@@ -629,28 +854,34 @@ def _build_pdf_evidence_table(hits: list, collection_name: str) -> list:
 
     table = Table(para_rows, repeatRows=1)
 
-    # Table styling
+    # Table styling with collection accent color header
     cmds = [
-        ("BACKGROUND", (0, 0), (-1, 0), _NVIDIA_GREEN),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTSIZE", (0, 0), (-1, -1), 7),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+        ("BACKGROUND", (0, 0), (-1, 0), accent),
+        ("TEXTCOLOR", (0, 0), (-1, 0), _WHITE),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.3, _TABLE_BORDER),
+        ("BOX", (0, 0), (-1, -1), 0.75, accent),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
     ]
-    # Alternating row colors
     for r_idx in range(1, len(para_rows)):
         if r_idx % 2 == 0:
             cmds.append(("BACKGROUND", (0, r_idx), (-1, r_idx), _TABLE_ALT))
 
     table.setStyle(TableStyle(cmds))
     flowables.append(table)
-    flowables.append(Spacer(1, 8))
+    flowables.append(Spacer(1, 12))
+
+    # KeepTogether for small tables (up to 6 data rows) to avoid orphaned headers
+    if len(rows) <= 7:
+        return [KeepTogether(flowables)]
     return flowables
 
+
+# ── Markdown table helpers ───────────────────────────────────────────
 
 def _parse_md_table(block: str) -> list:
     """Parse a markdown table block into a list of rows (list of cell strings).
@@ -662,7 +893,6 @@ def _parse_md_table(block: str) -> list:
         line = line.strip()
         if not line.startswith("|"):
             continue
-        # Skip separator rows like |---|---|
         stripped = line.replace("|", "").replace("-", "").replace(":", "").strip()
         if not stripped:
             continue
@@ -673,13 +903,13 @@ def _parse_md_table(block: str) -> list:
 
 def _build_md_table_flowable(rows: list) -> Table:
     """Convert parsed markdown table rows into a styled reportlab Table."""
-    header_style = ParagraphStyle("MdTblH", fontSize=8, leading=10,
-                                  textColor=colors.white, fontName="Helvetica-Bold")
-    body_style = ParagraphStyle("MdTblC", fontSize=8, leading=10)
+    header_style = ParagraphStyle("MdTblH", fontSize=8, leading=11,
+                                  textColor=_WHITE, fontName="Helvetica-Bold")
+    body_style = ParagraphStyle("MdTblC", fontSize=8, leading=11,
+                                textColor=_TEXT_PRIMARY)
 
     def _convert_cell(text: str, style: ParagraphStyle) -> Paragraph:
         escaped = _pdf_escape(text)
-        # Convert **bold** markers
         escaped = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', escaped)
         return Paragraph(escaped, style)
 
@@ -690,14 +920,15 @@ def _build_md_table_flowable(rows: list) -> Table:
 
     table = Table(para_rows, repeatRows=1)
     cmds = [
-        ("BACKGROUND", (0, 0), (-1, 0), _NVIDIA_GREEN),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+        ("BACKGROUND", (0, 0), (-1, 0), _DARK_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), _WHITE),
+        ("GRID", (0, 0), (-1, -1), 0.3, _TABLE_BORDER),
+        ("BOX", (0, 0), (-1, -1), 0.75, _DARK_BG),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
     ]
     for r_idx in range(1, len(para_rows)):
         if r_idx % 2 == 0:
@@ -706,73 +937,199 @@ def _build_md_table_flowable(rows: list) -> Table:
     return table
 
 
+# ── Markdown-to-flowables converter ─────────────────────────────────
+
 def _md_to_flowables(text: str, styles: dict) -> list:
     """Convert markdown-ish response text to reportlab flowables.
 
-    Handles: ## headings, ### headings, **bold**, bullet lists, block quotes,
-    markdown tables (rendered as styled reportlab Tables), and paragraphs.
+    Handles: ## headings, ### headings, **bold**, bullet lists, numbered lists,
+    block quotes, markdown tables, and paragraphs.  Uses line-by-line processing
+    to correctly separate headings from body text even when single-newline
+    separated in the source markdown.
     """
     flowables = []
-    # Split on blank lines for paragraph boundaries
-    blocks = re.split(r'\n{2,}', text.strip())
+
+    # Pre-process: ensure structural elements get their own blocks.
+    # Insert blank lines before headings, blockquotes, HR, and table rows
+    # so the block splitter correctly separates them.
+    normalized = text.strip()
+    # Blank line before any heading (# / ## / ###)
+    normalized = re.sub(r'(?<!\n)\n(#{1,3} )', r'\n\n\1', normalized)
+    # Blank line after a heading line (heading followed by non-blank)
+    normalized = re.sub(r'(^#{1,3} [^\n]+)\n(?!\n)', r'\1\n\n', normalized,
+                        flags=re.MULTILINE)
+    # Blank line before blockquote lines
+    normalized = re.sub(r'(?<!\n)\n(> )', r'\n\n\1', normalized)
+    # Blank line before horizontal rules
+    normalized = re.sub(r'(?<!\n)\n(-{3,})(?=\n|$)', r'\n\n\1', normalized)
+    # Blank line before table blocks starting with |
+    normalized = re.sub(r'(?<!\n)\n(\|)', r'\n\n\1', normalized)
+
+    blocks = re.split(r'\n{2,}', normalized.strip())
+
     for block in blocks:
         block = block.strip()
         if not block:
             continue
 
-        # Skip bare horizontal rules
+        # Horizontal rules
         if re.match(r'^-{3,}$', block):
-            flowables.append(HRFlowable(width="100%", thickness=0.5, color=_LIGHT_GRAY))
+            flowables.append(Spacer(1, 4))
+            flowables.append(HRFlowable(width="100%", thickness=0.5,
+                                        color=_TABLE_BORDER))
+            flowables.append(Spacer(1, 4))
             continue
 
-        # Heading detection
+        # ### Heading
         if block.startswith("### "):
-            content = block[4:]
-            content = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', _pdf_escape(content))
-            flowables.append(Paragraph(content, styles["h3"]))
-        elif block.startswith("## "):
-            flowables.append(Paragraph(_pdf_escape(block[3:]), styles["h2"]))
-        elif block.startswith("# "):
-            flowables.append(Paragraph(f'<b>{_pdf_escape(block[2:])}</b>', styles["h2"]))
-        elif block.startswith("|"):
-            # Markdown table — render as a proper styled Table
+            heading_line = block.split("\n")[0][4:]
+            heading_line = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>',
+                                  _pdf_escape(heading_line))
+            flowables.append(Paragraph(heading_line, styles["h3"]))
+            # If there's trailing content after the heading line, recurse
+            rest = "\n".join(block.split("\n")[1:]).strip()
+            if rest:
+                flowables.extend(_md_to_flowables(rest, styles))
+            continue
+
+        # ## Heading
+        if block.startswith("## "):
+            heading_line = block.split("\n")[0][3:]
+            flowables.append(Paragraph(_pdf_escape(heading_line), styles["h2"]))
+            rest = "\n".join(block.split("\n")[1:]).strip()
+            if rest:
+                flowables.extend(_md_to_flowables(rest, styles))
+            continue
+
+        # # Heading
+        if block.startswith("# "):
+            heading_line = block.split("\n")[0][2:]
+            flowables.append(Paragraph(f'<b>{_pdf_escape(heading_line)}</b>',
+                                       styles["h2"]))
+            rest = "\n".join(block.split("\n")[1:]).strip()
+            if rest:
+                flowables.extend(_md_to_flowables(rest, styles))
+            continue
+
+        # Markdown table
+        if block.startswith("|"):
             rows = _parse_md_table(block)
             if len(rows) >= 2:
                 flowables.append(_build_md_table_flowable(rows))
                 flowables.append(Spacer(1, 6))
             else:
-                # Fallback for single-row or malformed tables
                 flowables.append(Paragraph(_pdf_escape(block), styles["body"]))
-        elif block.startswith("> "):
-            # Block quote
+            continue
+
+        # Block quote
+        if block.startswith("> "):
             quote_style = ParagraphStyle(
                 "Quote", parent=styles["body"],
-                leftIndent=20, textColor=_LIGHT_GRAY, fontName="Helvetica-Oblique",
+                leftIndent=18, borderLeftWidth=3,
+                borderLeftColor=_NVIDIA_GREEN,
+                borderPadding=(6, 0, 0, 8),
+                textColor=_TEXT_SECONDARY,
+                fontName="Helvetica-Oblique",
+                fontSize=9, leading=13,
             )
-            clean = block.lstrip("> ").replace("\n> ", "\n")
+            clean = re.sub(r'^> ?', '', block, flags=re.MULTILINE)
             clean = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', _pdf_escape(clean))
             clean = clean.replace("\n", "<br/>")
             flowables.append(Paragraph(clean, quote_style))
-        else:
-            # Regular paragraph — convert **bold** and [text](url) links
-            escaped = _pdf_escape(block)
-            # Bold
-            escaped = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', escaped)
-            # Markdown links → reportlab <a> tags
-            escaped = re.sub(
-                r'\[(.+?)\]\((.+?)\)',
-                r'<a href="\2" color="#76B900">\1</a>',
-                escaped,
-            )
-            # Bullet lists
-            escaped = escaped.replace("\n- ", "<br/>&#8226; ")
-            if escaped.startswith("- "):
-                escaped = "&#8226; " + escaped[2:]
-            escaped = escaped.replace("\n", "<br/>")
-            flowables.append(Paragraph(escaped, styles["body"]))
+            continue
+
+        # Regular paragraph — handle bold, links, bullets, numbered lists
+        escaped = _pdf_escape(block)
+        escaped = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', escaped)
+        escaped = re.sub(
+            r'\[(.+?)\]\((.+?)\)',
+            r'<a href="\2" color="#2563EB"><u>\1</u></a>',
+            escaped,
+        )
+        lines = escaped.split("\n")
+        processed = []
+        for line in lines:
+            if line.startswith("- "):
+                processed.append(
+                    f'<font color="#76B900">\u2022</font>  {line[2:]}')
+            elif re.match(r'^\d+\.\s', line):
+                num_match = re.match(r'^(\d+\.)\s(.*)', line)
+                if num_match:
+                    processed.append(
+                        f'<font color="#76B900"><b>{num_match.group(1)}</b>'
+                        f'</font>  {num_match.group(2)}')
+                else:
+                    processed.append(line)
+            else:
+                processed.append(line)
+        escaped = "<br/>".join(processed)
+        flowables.append(Paragraph(escaped, styles["body"]))
 
     return flowables
 
+
+# ── Knowledge graph context parser ───────────────────────────────────
+
+def _kg_context_to_flowables(text: str, styles: dict) -> list:
+    """Parse knowledge graph context markdown into proper flowables.
+
+    The KG context often contains ## headings, **bold**, and bullet lists
+    that were previously dumped as raw markdown. This parses them properly.
+    """
+    if not text or not text.strip():
+        return []
+    # Reuse _md_to_flowables — it handles ##, **, bullets, etc.
+    return _md_to_flowables(text, styles)
+
+
+# ── Metrics table ────────────────────────────────────────────────────
+
+def _build_metrics_table(data: list[list[str]]) -> Table:
+    """Build a styled two-column metrics table."""
+    body_style = ParagraphStyle("MetricCell", fontSize=9, leading=12,
+                                textColor=_TEXT_PRIMARY)
+    header_style = ParagraphStyle("MetricH", fontSize=9, leading=12,
+                                  textColor=_WHITE, fontName="Helvetica-Bold")
+    para_rows = []
+    for r_idx, row in enumerate(data):
+        style = header_style if r_idx == 0 else body_style
+        para_rows.append([Paragraph(c, style) for c in row])
+
+    table = Table(para_rows, colWidths=[2.8 * inch, 2.2 * inch])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), _DARK_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), _WHITE),
+        ("BOX", (0, 0), (-1, -1), 0.75, _DARK_BG),
+        ("GRID", (0, 0), (-1, -1), 0.3, _TABLE_BORDER),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    for r_idx in range(1, len(para_rows)):
+        if r_idx % 2 == 0:
+            table_style = TableStyle([
+                ("BACKGROUND", (0, r_idx), (-1, r_idx), _TABLE_ALT),
+            ])
+            table.setStyle(table_style)
+    return table
+
+
+# ── Section divider ──────────────────────────────────────────────────
+
+def _section_divider() -> list:
+    """A styled section divider with spacing."""
+    return [
+        Spacer(1, 8),
+        HRFlowable(width="100%", thickness=0.75, color=_TABLE_BORDER,
+                    spaceAfter=4, spaceBefore=4),
+        Spacer(1, 4),
+    ]
+
+
+# ═════════════════════════════════════════════════════════════════════
+# MAIN PDF EXPORT
+# ═════════════════════════════════════════════════════════════════════
 
 def export_pdf(
     query: str,
@@ -781,9 +1138,11 @@ def export_pdf(
     comp_result: Optional[ComparativeResult] = None,
     filters_applied: Optional[dict] = None,
 ) -> bytes:
-    """Export a query result as a styled PDF report.
+    """Export a query result as a professionally styled PDF report.
 
-    Uses reportlab Platypus with NVIDIA-themed styling.
+    Uses reportlab Platypus with branded NVIDIA/HCLS themed styling,
+    dark header banners, page numbers, evidence summary cards,
+    collection-specific accent colors, and proper markdown rendering.
 
     Args:
         query: The user's original question
@@ -796,108 +1155,97 @@ def export_pdf(
         PDF file content as bytes
     """
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer, pagesize=letter,
-        leftMargin=0.6 * inch, rightMargin=0.6 * inch,
-        topMargin=0.6 * inch, bottomMargin=0.6 * inch,
+
+    # Build document with custom page templates for header/footer
+    frame_first = Frame(
+        _MARGIN_L, _MARGIN_B,
+        _CONTENT_W, _PAGE_H - _MARGIN_T - _MARGIN_B - 20,
+        id="first",
     )
+    frame_later = Frame(
+        _MARGIN_L, _MARGIN_B,
+        _CONTENT_W, _PAGE_H - _MARGIN_T - _MARGIN_B + 10,
+        id="later",
+    )
+    doc = BaseDocTemplate(
+        buffer, pagesize=letter,
+        leftMargin=_MARGIN_L, rightMargin=_MARGIN_R,
+        topMargin=_MARGIN_T, bottomMargin=_MARGIN_B,
+        title="CAR-T Intelligence Report",
+        author="HCLS AI Factory",
+    )
+    doc.addPageTemplates([
+        PageTemplate(id="First", frames=[frame_first], onPage=_first_page),
+        PageTemplate(id="Later", frames=[frame_later], onPage=_later_pages),
+    ])
+
     styles = _build_pdf_styles()
     elements = []
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     filters_str = _format_filters(filters_applied)
 
-    # ── Title + metadata ─────────────────────────────────────────
-    elements.append(Paragraph("CAR-T Intelligence Report", styles["title"]))
-    elements.append(Paragraph(f"<b>Query:</b> {_pdf_escape(query)}", styles["meta"]))
-    elements.append(Paragraph(f"<b>Generated:</b> {timestamp}", styles["meta"]))
-    elements.append(Paragraph(f"<b>Filters:</b> {_pdf_escape(filters_str)}", styles["meta"]))
-    elements.append(Spacer(1, 4))
-    elements.append(HRFlowable(width="100%", thickness=1, color=_NVIDIA_GREEN))
-    elements.append(Spacer(1, 8))
+    # ── Query info card ──────────────────────────────────────────
+    elements.append(Spacer(1, 6))
+    elements.extend(_build_query_card(query, timestamp, filters_str, styles))
+
+    # ── Evidence summary card ────────────────────────────────────
+    elements.extend(_build_summary_card(evidence, comp_result))
+
+    # Switch to continuation page template after first page flows over
+    elements.append(NextPageTemplate("Later"))
 
     # ── Response ─────────────────────────────────────────────────
     elements.append(Paragraph("Response", styles["h2"]))
     elements.extend(_md_to_flowables(response_text, styles))
-    elements.append(Spacer(1, 4))
-    elements.append(HRFlowable(width="100%", thickness=0.5, color=_LIGHT_GRAY))
+    elements.extend(_section_divider())
 
-    # ── Evidence ─────────────────────────────────────────────────
+    # ── Evidence tables ──────────────────────────────────────────
     if comp_result and comp_result.total_hits > 0:
+        # Ensure at least 2.5 inches for heading + first table (no orphan)
+        elements.append(CondPageBreak(2.5 * inch))
         elements.append(Paragraph("Evidence Sources (Comparative)", styles["h2"]))
 
-        elements.append(Paragraph(_pdf_escape(comp_result.entity_a), styles["h3"]))
+        elements.append(Paragraph(
+            f'<font color="#2563EB">\u25B6</font>  {_pdf_escape(comp_result.entity_a)}',
+            styles["h3"],
+        ))
         for coll_name, hits in comp_result.evidence_a.hits_by_collection().items():
             elements.extend(_build_pdf_evidence_table(hits, coll_name))
 
-        elements.append(Paragraph(_pdf_escape(comp_result.entity_b), styles["h3"]))
+        elements.append(Paragraph(
+            f'<font color="#7C3AED">\u25B6</font>  {_pdf_escape(comp_result.entity_b)}',
+            styles["h3"],
+        ))
         for coll_name, hits in comp_result.evidence_b.hits_by_collection().items():
             elements.extend(_build_pdf_evidence_table(hits, coll_name))
 
         if comp_result.comparison_context:
-            elements.append(Paragraph("Knowledge Graph Context", styles["h2"]))
-            elements.append(Paragraph(_pdf_escape(comp_result.comparison_context), styles["body"]))
-
-        # Search metrics
-        elements.append(HRFlowable(width="100%", thickness=0.5, color=_LIGHT_GRAY))
-        elements.append(Paragraph("Search Metrics", styles["h2"]))
-        metrics_data = [
-            ["Metric", "Value"],
-            ["Total Results", str(comp_result.total_hits)],
-            [f"{comp_result.entity_a} Results", str(comp_result.evidence_a.hit_count)],
-            [f"{comp_result.entity_b} Results", str(comp_result.evidence_b.hit_count)],
-            ["Search Time", f"{comp_result.total_search_time_ms:.0f}ms"],
-        ]
-        elements.append(_build_metrics_table(metrics_data))
+            elements.extend(_section_divider())
+            elements.append(Paragraph("Knowledge Graph Context", styles["h2_green"]))
+            elements.extend(_kg_context_to_flowables(
+                comp_result.comparison_context, styles))
 
     elif evidence and evidence.hit_count > 0:
-        elements.append(Paragraph("Evidence Sources", styles["h2"]))
-        for coll_name, hits in evidence.hits_by_collection().items():
+        # Ensure at least 2.5 inches for heading + first table (no orphan)
+        elements.append(CondPageBreak(2.5 * inch))
+        section_heading = Paragraph("Evidence Sources", styles["h2"])
+        colls = list(evidence.hits_by_collection().items())
+        # Wrap section heading with first evidence table to prevent orphan
+        first_flowables = _build_pdf_evidence_table(colls[0][1], colls[0][0])
+        elements.append(KeepTogether([section_heading] + first_flowables))
+        # Remaining evidence tables
+        for coll_name, hits in colls[1:]:
             elements.extend(_build_pdf_evidence_table(hits, coll_name))
 
         if evidence.knowledge_context:
-            elements.append(Paragraph("Knowledge Graph Context", styles["h2"]))
-            elements.append(Paragraph(_pdf_escape(evidence.knowledge_context), styles["body"]))
+            elements.extend(_section_divider())
+            elements.append(Paragraph("Knowledge Graph Context", styles["h2_green"]))
+            elements.extend(_kg_context_to_flowables(
+                evidence.knowledge_context, styles))
 
-        elements.append(HRFlowable(width="100%", thickness=0.5, color=_LIGHT_GRAY))
-        elements.append(Paragraph("Search Metrics", styles["h2"]))
-        metrics_data = [
-            ["Metric", "Value"],
-            ["Total Results", str(evidence.hit_count)],
-            ["Collections Searched", str(evidence.total_collections_searched)],
-            ["Search Time", f"{evidence.search_time_ms:.0f}ms"],
-        ]
-        elements.append(_build_metrics_table(metrics_data))
-
-    # ── Footer ───────────────────────────────────────────────────
-    elements.append(Spacer(1, 12))
-    elements.append(HRFlowable(width="100%", thickness=1, color=_NVIDIA_GREEN))
-    elements.append(Paragraph(
-        f"Generated by HCLS AI Factory &mdash; CAR-T Intelligence Agent v{VERSION}",
-        styles["footer"],
-    ))
+    # ── End spacer (footer is drawn by canvas) ───────────────────
+    elements.append(Spacer(1, 20))
 
     doc.build(elements)
     return buffer.getvalue()
-
-
-def _build_metrics_table(data: list[list[str]]) -> Table:
-    """Build a small two-column metrics table."""
-    body_style = ParagraphStyle("MetricCell", fontSize=9, leading=11)
-    header_style = ParagraphStyle("MetricH", fontSize=9, leading=11,
-                                  textColor=colors.white, fontName="Helvetica-Bold")
-    para_rows = []
-    for r_idx, row in enumerate(data):
-        style = header_style if r_idx == 0 else body_style
-        para_rows.append([Paragraph(c, style) for c in row])
-
-    table = Table(para_rows, colWidths=[2.5 * inch, 2 * inch])
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), _NVIDIA_GREEN),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-    ]))
-    return table

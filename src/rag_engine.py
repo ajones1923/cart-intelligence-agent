@@ -10,6 +10,7 @@ Author: Adam Jones
 Date: February 2026
 """
 
+import logging
 import re
 import time
 from typing import Dict, Generator, List, Optional
@@ -21,6 +22,11 @@ from .models import (
     CrossCollectionResult,
     SearchHit,
 )
+
+logger = logging.getLogger(__name__)
+
+# Allowed characters for Milvus filter expressions to prevent injection
+_SAFE_FILTER_RE = re.compile(r"^[A-Za-z0-9 _.\-/]+$")
 
 # ═══════════════════════════════════════════════════════════════════════
 # SYSTEM PROMPT
@@ -81,14 +87,10 @@ COLLECTION_CONFIG = {
     "genomic_evidence":   {"weight": settings.WEIGHT_GENOMIC,       "label": "Genomic",        "has_target_antigen": False, "year_field": None},
 }
 
-# Known target antigens for expansion term classification
-_KNOWN_ANTIGENS = {
-    "CD19", "BCMA", "CD22", "CD20", "CD30", "CD33", "CD38", "CD123",
-    "GD2", "HER2", "GPC3", "EGFR", "EGFRVIII", "MESOTHELIN",
-    "CLAUDIN18.2", "MUC1", "PSMA", "ROR1", "CD7", "GPRC5D",
-    "FLT3", "CD70", "DLL3", "NY-ESO-1", "B7-H3", "NKG2D",
-    "IL13RA2", "CD5",
-}
+# Known target antigens — derived from knowledge graph (single source of truth)
+from .knowledge import CART_TARGETS
+
+_KNOWN_ANTIGENS = set(CART_TARGETS.keys())
 
 
 class CARTRAGEngine:
@@ -155,13 +157,18 @@ class CARTRAGEngine:
             parts = []
             cfg = COLLECTION_CONFIG.get(coll, {})
             if query.target_antigen and cfg.get("has_target_antigen"):
-                parts.append(f'target_antigen == "{query.target_antigen}"')
+                # Sanitize user input before embedding in filter expression
+                safe_antigen = query.target_antigen.strip()
+                if _SAFE_FILTER_RE.match(safe_antigen):
+                    parts.append(f'target_antigen == "{safe_antigen}"')
+                else:
+                    logger.warning("Rejected unsafe target_antigen filter value: %r", safe_antigen)
             year_field = cfg.get("year_field")
             if year_field:
                 if year_min:
-                    parts.append(f'{year_field} >= {year_min}')
+                    parts.append(f'{year_field} >= {int(year_min)}')
                 if year_max:
-                    parts.append(f'{year_field} <= {year_max}')
+                    parts.append(f'{year_field} <= {int(year_max)}')
             if parts:
                 filter_exprs[coll] = " and ".join(parts)
 
@@ -304,7 +311,7 @@ class CARTRAGEngine:
                 else:
                     relevance = "low"
 
-                metadata = dict(r)
+                metadata = {k: v for k, v in r.items() if k not in ("embedding",)}
                 metadata["relevance"] = relevance
 
                 hit = SearchHit(
@@ -345,11 +352,14 @@ class CARTRAGEngine:
 
             if is_antigen:
                 # Use as field filter on target_antigen-capable collections
+                safe_term = term.strip()
+                if not _SAFE_FILTER_RE.match(safe_term):
+                    continue
                 for coll_name in collections:
                     if not COLLECTION_CONFIG.get(coll_name, {}).get("has_target_antigen"):
                         continue
                     try:
-                        filter_expr = f'target_antigen == "{term}"'
+                        filter_expr = f'target_antigen == "{safe_term}"'
                         results = self.collections.search(
                             coll_name, query_embedding, min(3, top_k), filter_expr,
                         )
@@ -362,8 +372,8 @@ class CARTRAGEngine:
                                 text=r.get("text_summary", r.get("text_chunk", "")),
                                 metadata=r,
                             ))
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("Expanded antigen search failed for %s/%s: %s", coll_name, safe_term, exc)
             else:
                 # Semantic search: re-embed the expansion term and search all collections
                 try:
@@ -384,8 +394,8 @@ class CARTRAGEngine:
                                 text=r.get("text_summary", r.get("text_chunk", "")),
                                 metadata=r,
                             ))
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Expanded semantic search failed for '%s': %s", term[:50], exc)
 
         return additional_hits
 
@@ -416,11 +426,8 @@ class CARTRAGEngine:
         context_parts = []
         query_upper = query.upper()
 
-        # Check for target antigen mentions
-        for antigen in ["CD19", "BCMA", "CD22", "CD20", "CD30", "CD33",
-                        "CD38", "CD123", "GD2", "HER2", "GPC3", "EGFR",
-                        "MESOTHELIN", "CLAUDIN18.2", "PSMA", "ROR1",
-                        "CD7", "GPRC5D", "FLT3", "DLL3"]:
+        # Check for target antigen mentions (using single source from knowledge graph)
+        for antigen in _KNOWN_ANTIGENS:
             if antigen in query_upper:
                 ctx = get_target_context(antigen)
                 if ctx:

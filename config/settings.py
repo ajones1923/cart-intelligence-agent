@@ -95,6 +95,12 @@ class CARTSettings(BaseSettings):
     CITATION_HIGH_THRESHOLD: float = 0.75
     CITATION_MEDIUM_THRESHOLD: float = 0.60
 
+    # ── CORS ──
+    CORS_ORIGINS: str = "*"
+
+    # ── Request Limits ──
+    MAX_REQUEST_SIZE_MB: int = 10
+
     model_config = {"env_prefix": "CART_", "env_file": ".env"}
 
 

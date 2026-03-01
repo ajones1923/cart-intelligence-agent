@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
+from .knowledge import CART_TARGETS
 from .models import AgentQuery, AgentResponse, CARTStage, CrossCollectionResult
 
 
@@ -132,14 +133,8 @@ class CARTIntelligenceAgent:
         plan = SearchPlan(question=question)
         q_upper = question.upper()
 
-        # Identify target antigens
-        antigens = [
-            "CD19", "BCMA", "CD22", "CD20", "CD30", "CD33", "CD38",
-            "CD123", "GD2", "HER2", "GPC3", "EGFR", "EGFRVIII",
-            "MESOTHELIN", "CLAUDIN18.2", "MUC1", "PSMA", "ROR1",
-            "CD7", "GPRC5D", "FLT3", "CD70", "DLL3", "NY-ESO-1",
-        ]
-        plan.target_antigens = [a for a in antigens if a in q_upper]
+        # Identify target antigens (single source from knowledge graph)
+        plan.target_antigens = [a for a in CART_TARGETS if a in q_upper]
 
         # Identify relevant CAR-T development stages
         stage_keywords = {

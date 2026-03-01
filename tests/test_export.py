@@ -331,12 +331,13 @@ class TestGenerateFilename:
         assert fname.endswith(".pdf")
 
     def test_timestamp_format(self):
-        """The filename contains a timestamp in YYYYMMDD_HHMMSS format."""
+        """The filename contains a timestamp in ISO-8601 YYYYMMDDTHHMMSSZ format."""
         fname = generate_filename("md")
-        # Expected: cart_query_20260219_143025.md
+        # Expected: cart_query_20260219T143025Z.md
         parts = fname.replace("cart_query_", "").replace(".md", "")
-        assert len(parts) == 15  # YYYYMMDD_HHMMSS
-        assert parts[8] == "_"
+        assert len(parts) == 16  # YYYYMMDDTHHMMSSZ
+        assert parts[8] == "T"
+        assert parts[-1] == "Z"
 
     def test_two_filenames_differ(self):
         """Two sequential filenames could be identical (same second) but are valid."""

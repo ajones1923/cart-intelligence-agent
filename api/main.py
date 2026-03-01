@@ -29,9 +29,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 # =====================================================================
@@ -55,6 +55,11 @@ from src.collections import CARTCollectionManager
 from src.knowledge import get_knowledge_stats
 from src.models import AgentQuery, CrossCollectionResult, SearchHit
 from src.rag_engine import CARTRAGEngine
+
+# Route modules (meta-agent, reports, events)
+from api.routes.meta_agent import router as meta_agent_router
+from api.routes.reports import router as reports_router
+from api.routes.events import router as events_router
 
 # =====================================================================
 # Module-level state (populated during lifespan startup)
@@ -180,13 +185,30 @@ app = FastAPI(
 )
 
 # ── CORS middleware ──
+_cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Request size limit middleware ──
+@app.middleware("http")
+async def _limit_request_size(request: Request, call_next):
+    """Reject request bodies that exceed the configured size limit."""
+    content_length = request.headers.get("content-length")
+    max_bytes = settings.MAX_REQUEST_SIZE_MB * 1024 * 1024
+    if content_length and int(content_length) > max_bytes:
+        return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+    return await call_next(request)
+
+# ── Include route modules ──
+app.include_router(meta_agent_router)
+app.include_router(reports_router)
+app.include_router(events_router)
 
 
 # =====================================================================
@@ -215,7 +237,7 @@ class CollectionsResponse(BaseModel):
 class QueryRequest(BaseModel):
     """Request schema for POST /query and POST /search."""
     question: str = Field(..., min_length=1, description="Natural-language question")
-    target_antigen: Optional[str] = Field(None, description="Filter by target antigen (e.g. CD19, BCMA)")
+    target_antigen: Optional[str] = Field(None, max_length=100, description="Filter by target antigen (e.g. CD19, BCMA)")
     collections: Optional[List[str]] = Field(None, description="Restrict search to specific collections")
     year_min: Optional[int] = Field(None, ge=1990, le=2030, description="Minimum publication year")
     year_max: Optional[int] = Field(None, ge=1990, le=2030, description="Maximum publication year")

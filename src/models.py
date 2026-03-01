@@ -6,7 +6,7 @@ Follows the same dataclass/Pydantic pattern as:
   - drug-discovery-pipeline/src/models.py (GeneratedMolecule, DockingResult)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 
@@ -471,4 +471,4 @@ class AgentResponse(BaseModel):
     answer: str
     evidence: CrossCollectionResult
     knowledge_used: List[str] = Field(default_factory=list)
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
