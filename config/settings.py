@@ -6,7 +6,7 @@ Follows the same Pydantic BaseSettings pattern as rag-chat-pipeline/config/setti
 from pathlib import Path
 from typing import Optional
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class CARTSettings(BaseSettings):
@@ -96,12 +96,17 @@ class CARTSettings(BaseSettings):
     CITATION_MEDIUM_THRESHOLD: float = 0.60
 
     # ── CORS ──
-    CORS_ORIGINS: str = "*"
+    CORS_ORIGINS: str = "http://localhost:8080,http://localhost:8521,http://localhost:8522"
 
     # ── Request Limits ──
     MAX_REQUEST_SIZE_MB: int = 10
 
-    model_config = {"env_prefix": "CART_", "env_file": ".env"}
+    model_config = SettingsConfigDict(
+        env_prefix="CART_",
+        case_sensitive=False,
+        env_file=".env",
+        env_file_encoding="utf-8",
+    )
 
 
 settings = CARTSettings()
