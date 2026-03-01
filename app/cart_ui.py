@@ -473,6 +473,17 @@ with st.sidebar:
     st.markdown(f"**Total: {total_vectors:,} vectors across {len(selected_collections)} collections**")
 
     st.markdown("---")
+    st.markdown("### \U0001f3af Demo Mode")
+    if st.button("Load Demo Patient", key="load_demo"):
+        import sys as _sys
+        _sys.path.insert(0, "/home/adam/projects/hcls-ai-factory/lib")
+        from hcls_common.demo_data import DEMO_CART
+        st.session_state["target_antigen_filter"] = DEMO_CART["target_antigen"]
+        st.session_state["demo_question"] = DEMO_CART["question"]
+        st.toast("\u2705 Demo patient loaded! Ask the demo question in Chat.", icon="\U0001f3af")
+        st.rerun()
+
+    st.markdown("---")
     st.markdown("### Demo Queries")
     demo_queries = [
         "Why do CD19 CAR-T therapies fail in relapsed B-ALL?",
@@ -847,6 +858,28 @@ with tab_chat:
                             "stage": stage_filter,
                         },
                     }
+            # Publish cross-agent event for CAR-T analysis
+            try:
+                sys.path.insert(0, "/home/adam/projects/hcls-ai-factory/lib")
+                from hcls_common.event_bus import publish_event, EventType, PipelineStage
+                _evidence_count = 0
+                if evidence and hasattr(evidence, "hit_count"):
+                    _evidence_count = evidence.hit_count
+                elif comp_result and hasattr(comp_result, "total_hits"):
+                    _evidence_count = comp_result.total_hits
+                _target = target_filter if target_filter != "All Targets" else None
+                publish_event(
+                    EventType.CART_MANUFACTURING_READY,
+                    source_stage=PipelineStage.CART_ANALYSIS,
+                    payload={
+                        "target_antigen": _target,
+                        "evidence_count": _evidence_count,
+                        "mode": "deep_research" if deep_research else "quick_rag",
+                    },
+                )
+            except Exception:
+                pass
+
             st.session_state.messages.append(
                 {"role": "assistant", "content": response_text, "evidence_data": evidence_data}
             )
