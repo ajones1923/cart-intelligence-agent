@@ -181,6 +181,8 @@ app = FastAPI(
         "real-world evidence."
     ),
     version="1.0.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
     lifespan=lifespan,
 )
 
@@ -209,6 +211,15 @@ async def _limit_request_size(request: Request, call_next):
 app.include_router(meta_agent_router)
 app.include_router(reports_router)
 app.include_router(events_router)
+
+
+# =====================================================================
+# Root endpoint
+# =====================================================================
+
+@app.get("/", include_in_schema=False)
+def root():
+    return {"service": "CAR-T Intelligence Agent", "docs": "/docs", "health": "/health"}
 
 
 # =====================================================================
