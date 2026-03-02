@@ -115,8 +115,8 @@ class CARTIntelligenceAgent:
         knowledge_used = []
         if evidence.knowledge_context:
             for line in evidence.knowledge_context.split("\n"):
-                if line.strip().startswith("Target:"):
-                    knowledge_used.append(line.strip())
+                if line.strip().startswith("## "):
+                    knowledge_used.append(line.strip().lstrip("# "))
 
         return AgentResponse(
             question=question,
