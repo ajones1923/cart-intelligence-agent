@@ -3,9 +3,9 @@
 Extends the Clinker pattern from rag-chat-pipeline/src/knowledge.py,
 adapted for the CAR-T cell therapy domain. Contains:
 
-1. CART_TARGETS: ~25 target antigens with clinical data
-2. CART_TOXICITIES: ~8 toxicity profiles with grading/management
-3. CART_MANUFACTURING: ~10 manufacturing process parameters
+1. CART_TARGETS: ~33 target antigens with clinical data
+2. CART_TOXICITIES: ~12 toxicity profiles with grading/management
+3. CART_MANUFACTURING: ~15 manufacturing process parameters
 
 Author: Adam Jones
 Date: February 2026
@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 
 # =============================================================================
-# 1. CART_TARGETS — Target antigen knowledge graph (~25 entries)
+# 1. CART_TARGETS — Target antigen knowledge graph (~33 entries)
 # =============================================================================
 
 CART_TARGETS: Dict[str, Dict[str, Any]] = {
@@ -308,11 +308,99 @@ CART_TARGETS: Dict[str, Dict[str, Any]] = {
         "toxicity_profile": {"CRS": "moderate"},
         "normal_tissue": "Normal T-cells",
     },
+    "FcRH5": {
+        "protein": "Fc Receptor-Like 5 (FCRLA)",
+        "uniprot_id": "Q96RD9",
+        "expression": "Plasma cells, B-cell subsets",
+        "diseases": ["Multiple Myeloma"],
+        "approved_products": [],
+        "key_trials": ["MCARH109 Phase 1 (MSK)", "MCARH145 Phase 1"],
+        "known_resistance": ["FcRH5 downregulation", "BCMA co-targeting escape"],
+        "toxicity_profile": {"crs_any": "72%", "crs_grade3": "4%", "icans_any": "6%"},
+        "normal_tissue": "Low-level B-cell expression; expected B-cell aplasia",
+    },
+    "SLAMF7": {
+        "protein": "SLAM Family Member 7 (CS1/CD319)",
+        "uniprot_id": "Q9NQ25",
+        "expression": "Plasma cells, NK cells, activated T-cells",
+        "diseases": ["Multiple Myeloma"],
+        "approved_products": [],
+        "key_trials": ["UCART-CS1 Phase 1", "CARAMBA (Phase 1/2)"],
+        "known_resistance": ["SLAMF7 shedding", "NK-cell fratricide risk"],
+        "toxicity_profile": {"crs_any": "60-80%", "crs_grade3": "5-10%", "nk_depletion": "Expected"},
+        "normal_tissue": "NK cells, activated T-cells — risk of NK/T depletion",
+    },
+    "CD70": {
+        "protein": "CD70 (TNFSF7/CD27L)",
+        "uniprot_id": "P32970",
+        "expression": "Activated lymphocytes, tumor cells (AML, RCC)",
+        "diseases": ["AML", "T-ALL", "Renal Cell Carcinoma", "Glioblastoma"],
+        "approved_products": [],
+        "key_trials": ["PRGN-3006 Phase 1/2 (AML)", "CD70-targeting Phase 1 (RCC)"],
+        "known_resistance": ["CD70 internalization", "Immunosuppressive TME in solid tumors"],
+        "toxicity_profile": {"crs_any": "50-70%", "crs_grade3": "5-15%", "t_cell_fratricide": "Risk in allogeneic"},
+        "normal_tissue": "Activated lymphocytes — controlled by limited expression kinetics",
+    },
+    "TROP2": {
+        "protein": "Trophoblast Cell-Surface Antigen 2 (TACSTD2)",
+        "uniprot_id": "P09758",
+        "expression": "Epithelial cells, overexpressed in carcinomas",
+        "diseases": ["Triple-Negative Breast Cancer", "NSCLC", "Urothelial Carcinoma", "Gastric Cancer"],
+        "approved_products": [],
+        "key_trials": ["TROP2-CAR-T Phase 1 (solid tumors)", "Sacituzumab govitecan ADC (approved, validates target)"],
+        "known_resistance": ["Antigen heterogeneity", "Solid tumor microenvironment", "Poor T-cell infiltration"],
+        "toxicity_profile": {"on_target_off_tumor": "Epithelial toxicity risk", "crs_any": "30-50%"},
+        "normal_tissue": "Normal epithelial tissues — skin, GI mucosa, lung epithelium",
+    },
+    "FLT3": {
+        "protein": "FMS-Like Tyrosine Kinase 3 (CD135)",
+        "uniprot_id": "P36888",
+        "expression": "Hematopoietic progenitors, AML blasts",
+        "diseases": ["AML", "B-ALL", "MDS"],
+        "approved_products": [],
+        "key_trials": ["FLT3-CAR-T Phase 1 (UPenn)", "AMG 553 (bispecific, validates target)"],
+        "known_resistance": ["FLT3 splice variants", "Myeloablative on-target toxicity"],
+        "toxicity_profile": {"myeloablation": "Expected (stem cell rescue needed)", "crs_any": "60-80%"},
+        "normal_tissue": "Hematopoietic stem cells — myeloablation expected, requires HSCT rescue",
+    },
+    "CLL1": {
+        "protein": "C-Type Lectin Domain Family 12 Member A (CLEC12A)",
+        "uniprot_id": "Q5QGZ9",
+        "expression": "Myeloid progenitors, AML blasts, leukemic stem cells",
+        "diseases": ["AML"],
+        "approved_products": [],
+        "key_trials": ["CLL-1 CAR-T Phase 1 (China)", "CD33/CLL-1 dual CAR Phase 1"],
+        "known_resistance": ["CLL-1 expression heterogeneity", "Dual-target escape"],
+        "toxicity_profile": {"crs_any": "65%", "crs_grade3": "10%", "myelosuppression": "Expected"},
+        "normal_tissue": "Myeloid progenitors — prolonged cytopenias expected",
+    },
+    "CD44v6": {
+        "protein": "CD44 Variant Exon 6 (CD44v6)",
+        "uniprot_id": "P16070",
+        "expression": "AML blasts, epithelial cancers",
+        "diseases": ["AML", "Pancreatic Cancer", "Head and Neck SCC", "Gastric Cancer"],
+        "approved_products": [],
+        "key_trials": ["CD44v6-CAR-T Phase 1/2 (San Raffaele)", "MLM-CAR44.1 Phase 1"],
+        "known_resistance": ["CD44v6 downregulation", "Alternative splicing", "TME suppression"],
+        "toxicity_profile": {"monocytopenia": "Expected", "crs_any": "40-60%", "skin_toxicity": "Possible (keratinocyte expression)"},
+        "normal_tissue": "Keratinocytes, monocytes — skin toxicity risk, monocytopenia",
+    },
+    "EpCAM": {
+        "protein": "Epithelial Cell Adhesion Molecule (CD326/TACSTD1)",
+        "uniprot_id": "P16422",
+        "expression": "Epithelial cells, overexpressed in carcinomas",
+        "diseases": ["Colorectal Cancer", "Gastric Cancer", "Ovarian Cancer", "Hepatocellular Carcinoma", "Pancreatic Cancer"],
+        "approved_products": [],
+        "key_trials": ["EpCAM-CAR-T Phase 1 (HCC)", "EpCAM-CAR-T Phase 1/2 (peritoneal carcinomatosis)"],
+        "known_resistance": ["Epithelial-mesenchymal transition", "Antigen heterogeneity", "Solid tumor barriers"],
+        "toxicity_profile": {"on_target_off_tumor": "GI epithelial toxicity risk", "crs_any": "30-50%"},
+        "normal_tissue": "Normal GI, hepatic, pancreatic epithelia — significant on-target/off-tumor risk",
+    },
 }
 
 
 # =============================================================================
-# 2. CART_TOXICITIES — Toxicity knowledge graph (~8 profiles)
+# 2. CART_TOXICITIES — Toxicity knowledge graph (~12 profiles)
 # =============================================================================
 
 CART_TOXICITIES: Dict[str, Dict[str, Any]] = {
@@ -511,11 +599,127 @@ CART_TOXICITIES: Dict[str, Dict[str, Any]] = {
         "biomarkers": ["Target-antigen dependent"],
         "risk_factors": ["Broad normal tissue expression", "High-affinity scFv"],
     },
+    "COAGULOPATHY": {
+        "full_name": "Disseminated Intravascular Coagulation / Coagulopathy",
+        "mechanism": (
+            "CRS-driven endothelial activation releases tissue factor and von Willebrand "
+            "factor, triggering coagulation cascade consumption. IL-6 and TNF-alpha promote "
+            "a procoagulant state."
+        ),
+        "grading": {
+            "grade_1": "D-dimer elevated <4x ULN, fibrinogen normal",
+            "grade_2": "Fibrinogen 100-200 mg/dL, D-dimer 4-10x ULN",
+            "grade_3": "Fibrinogen <100 mg/dL, PT/INR elevated, active bleeding",
+            "grade_4": "Life-threatening hemorrhage, multi-organ DIC, hemodynamic instability",
+        },
+        "grading_system": "ISTH DIC scoring system + CTCAE v5.0",
+        "incidence": "5-15% with severe CRS; up to 30% subclinical coagulopathy",
+        "timing": "Onset day 3-7 post-infusion, concurrent with peak CRS",
+        "management": [
+            "Monitor fibrinogen q6h during CRS",
+            "Cryoprecipitate if fibrinogen <150 mg/dL",
+            "Platelet transfusion if <50,000/\u03bcL with bleeding",
+            "Heparin generally contraindicated",
+            "Treat underlying CRS aggressively",
+        ],
+        "biomarkers": ["fibrinogen", "d_dimer", "pt_inr", "platelets", "thrombin_time"],
+        "risk_factors": [
+            "High tumor burden", "Grade 3+ CRS",
+            "Baseline low fibrinogen", "Prior anticoagulation",
+        ],
+    },
+    "CARDIAC_TOXICITY": {
+        "full_name": "Cardiac Toxicity",
+        "mechanism": (
+            "Direct myocardial injury from cytokine storm (IL-6, TNF-alpha), catecholamine "
+            "surge, and capillary leak. Can progress to cardiomyopathy, arrhythmia, or "
+            "cardiac arrest."
+        ),
+        "grading": {
+            "grade_1": "Troponin elevated above 99th percentile, asymptomatic",
+            "grade_2": "Troponin elevation with ECG changes (ST-T wave), mild LV dysfunction (LVEF 40-50%)",
+            "grade_3": "Symptomatic heart failure, LVEF <40%, hemodynamically significant arrhythmia",
+            "grade_4": "Cardiogenic shock, life-threatening arrhythmia, cardiac arrest",
+        },
+        "grading_system": "CTCAE v5.0 + ACC/AHA cardio-oncology guidelines",
+        "incidence": "5-20% troponin elevation; 2-5% clinically significant cardiac events",
+        "timing": "Onset day 2-10, often concurrent with CRS peak",
+        "management": [
+            "Baseline echocardiogram and troponin",
+            "Serial troponin and BNP monitoring during CRS",
+            "Cardiology consultation if troponin >3x ULN or BNP >500",
+            "Standard heart failure management if LVEF depressed",
+            "ICU monitoring for hemodynamic instability",
+        ],
+        "biomarkers": ["troponin_hstni", "bnp_nt_probnp", "ecg", "echocardiogram_lvef"],
+        "risk_factors": [
+            "Pre-existing cardiac disease", "Grade 3+ CRS",
+            "Age >65", "Prior anthracycline exposure", "Hypertension",
+        ],
+    },
+    "RENAL_TOXICITY": {
+        "full_name": "Renal Toxicity / Acute Kidney Injury",
+        "mechanism": (
+            "TLS-associated uric acid nephropathy, cytokine-mediated capillary leak with "
+            "prerenal AKI, or direct tubular injury from inflammatory mediators."
+        ),
+        "grading": {
+            "grade_1": "Creatinine 1.5-2x baseline, eGFR mildly reduced",
+            "grade_2": "Creatinine 2-3x baseline, oliguria <0.5 mL/kg/h for 6-12h",
+            "grade_3": "Creatinine >3x baseline or >4.0 mg/dL, dialysis indicated",
+            "grade_4": "Life-threatening; dialysis-dependent, multi-organ failure",
+        },
+        "grading_system": "KDIGO AKI staging + CTCAE v5.0",
+        "incidence": "10-25% any grade AKI; 3-8% dialysis-requiring",
+        "timing": "Onset day 2-14, often with CRS or TLS",
+        "management": [
+            "Aggressive IV hydration during CRS",
+            "Monitor electrolytes q6-12h (K+, phosphate, uric acid)",
+            "Rasburicase prophylaxis for high tumor burden",
+            "Avoid nephrotoxins (NSAIDs, contrast, aminoglycosides)",
+            "Early nephrology consultation if creatinine >2x baseline",
+        ],
+        "biomarkers": ["creatinine", "bun", "potassium", "phosphate", "uric_acid", "urine_output"],
+        "risk_factors": [
+            "High tumor burden (TLS risk)", "Pre-existing CKD",
+            "Severe CRS", "Concomitant nephrotoxic medications",
+        ],
+    },
+    "SECONDARY_MALIGNANCY": {
+        "full_name": "Secondary Malignancy (T-Cell Lymphoma)",
+        "mechanism": (
+            "Insertional mutagenesis from viral vector integration near proto-oncogenes, "
+            "or clonal expansion of transduced T-cells. FDA class-wide boxed warning added "
+            "November 2023."
+        ),
+        "grading": {
+            "grade_1": "Clonal expansion detected on integration site analysis, no clinical lymphoma",
+            "grade_2": "Atypical T-cell population detected, monitoring required",
+            "grade_3": "Confirmed T-cell lymphoma diagnosis, treatment-requiring",
+            "grade_4": "Aggressive/refractory T-cell lymphoma, life-threatening",
+        },
+        "grading_system": "FDA Risk Evaluation + WHO lymphoma classification",
+        "incidence": "~33 reported cases by Nov 2023 across all approved products; estimated 0.1-0.4% incidence",
+        "timing": "Onset 2 months to 5+ years post-infusion (median ~1-2 years)",
+        "management": [
+            "FDA requires 15-year long-term follow-up for all CAR-T recipients",
+            "Annual CBC with differential and flow cytometry",
+            "Integration site analysis if unexplained lymphocytosis",
+            "Standard lymphoma workup if T-cell malignancy suspected",
+            "Report to REMS program and FDA MedWatch",
+        ],
+        "biomarkers": ["cbc_differential", "flow_cytometry_tcrVb", "integration_site_analysis", "car_transgene_pcr"],
+        "risk_factors": [
+            "Retroviral vectors (higher insertional risk than lentiviral)",
+            "Multiple prior lines of therapy",
+            "Prior DNA-damaging agents", "Baseline clonal hematopoiesis",
+        ],
+    },
 }
 
 
 # =============================================================================
-# 3. CART_MANUFACTURING — Manufacturing process knowledge (~10 entries)
+# 3. CART_MANUFACTURING — Manufacturing process knowledge (~15 entries)
 # =============================================================================
 
 CART_MANUFACTURING: Dict[str, Dict[str, Any]] = {
@@ -730,6 +934,91 @@ CART_MANUFACTURING: Dict[str, Dict[str, Any]] = {
             "30-40% of patients never receive manufactured product",
         ],
     },
+    "non_viral_transposon": {
+        "description": "Non-viral gene transfer using Sleeping Beauty or PiggyBac transposon systems. DNA plasmid + transposase electroporated into T-cells.",
+        "typical_efficiency": "5-15% stable integration",
+        "critical_parameters": [
+            "Transposon:transposase ratio (10:1 optimal)",
+            "Electroporation voltage/pulse (1700V, 20ms)",
+            "Plasmid quality (endotoxin-free)",
+            "Cell density at electroporation (1e7/mL)",
+        ],
+        "failure_modes": [
+            "Low integration efficiency vs viral",
+            "Multi-copy insertions",
+            "Transposase re-mobilization risk",
+            "Cell death from electroporation (30-50% loss)",
+        ],
+        "regulatory_note": "Lower manufacturing cost ($20-50K vs $100-300K viral). PACT alliance, Ziopharm programs.",
+    },
+    "mrna_electroporation": {
+        "description": "Transient CAR expression via in vitro transcribed mRNA electroporation. No genomic integration — CAR expression lasts 24-72 hours, enabling repeated dosing.",
+        "typical_efficiency": "70-95% transfection, expression decays over 48-72h",
+        "critical_parameters": [
+            "mRNA cap structure (CleanCap/ARCA)",
+            "Poly-A tail length (>100 nt)",
+            "Modified nucleosides (pseudouridine, m1\u03a8)",
+            "Multiple dosing schedule (weekly x 3-6)",
+        ],
+        "failure_modes": [
+            "Rapid CAR loss requiring repeated infusions",
+            "Anti-RNA immune responses",
+            "Inconsistent expression kinetics",
+            "Manufacturing complexity for multiple doses",
+        ],
+        "regulatory_note": "Enables iterative dose-finding with safety shutoff. UPenn mesoCAR-T program.",
+    },
+    "crispr_knock_in": {
+        "description": "CRISPR-Cas9 site-specific integration of CAR construct at the TRAC locus, disrupting endogenous TCR while achieving uniform CAR expression under the T-cell receptor promoter.",
+        "typical_efficiency": "20-50% knock-in at TRAC locus",
+        "critical_parameters": [
+            "Guide RNA specificity (off-target <0.1%)",
+            "Cas9 delivery (RNP preferred over plasmid)",
+            "HDR template design (AAV6 or dsDNA)",
+            "Selection/enrichment post-editing",
+        ],
+        "failure_modes": [
+            "Off-target editing (chromosomal translocations)",
+            "Low HDR efficiency in primary T-cells",
+            "p53-mediated cell death from DSBs",
+            "Large-scale Cas9 RNP manufacturing",
+        ],
+        "regulatory_note": "TRAC-integrated CAR shows superior persistence (Eyquem et al. Nature 2017). Caribou Biosciences CB-010 program.",
+    },
+    "ipsc_derived": {
+        "description": "CAR-T cells derived from induced pluripotent stem cells (iPSCs) — master cell bank enables unlimited, standardized manufacturing of off-the-shelf allogeneic product.",
+        "typical_efficiency": "Differentiation to mature T-cells: 40-60% yield",
+        "critical_parameters": [
+            "iPSC quality (karyotype stability)",
+            "Directed differentiation protocol (21-28 days)",
+            "TCR/HLA knockout (TRAC/B2M deletion)",
+            "NK-resistance engineering (HLA-E/CD47 knock-in)",
+        ],
+        "failure_modes": [
+            "Incomplete T-cell maturation (immature phenotype)",
+            "Genomic instability during culture",
+            "Residual undifferentiated cells (teratoma risk)",
+            "Functional inferiority vs autologous CAR-T",
+        ],
+        "regulatory_note": "Fate Therapeutics FT819 (Phase 1). Standardized manufacturing eliminates patient-specific variability.",
+    },
+    "automated_manufacturing": {
+        "description": "Automated closed-system manufacturing using platforms like CliniMACS Prodigy (Miltenyi), Cocoon (Lonza), or Sepax (Cytiva). Reduces cleanroom requirements, operator variability, and contamination risk.",
+        "typical_efficiency": "Comparable to manual (85-95% viability, 50-200x expansion)",
+        "critical_parameters": [
+            "Protocol programming and validation",
+            "Reagent lot qualification",
+            "Sensor calibration (temperature, pH, dissolved O2)",
+            "Closed-system integrity testing",
+        ],
+        "failure_modes": [
+            "Software/hardware failures during automated run",
+            "Limited flexibility for non-standard protocols",
+            "High capital equipment cost ($200-500K per unit)",
+            "Batch size limitations",
+        ],
+        "regulatory_note": "Enables decentralized manufacturing at clinical sites. Reduced vein-to-vein time to 7-12 days. Novartis T-Charge technology.",
+    },
 }
 
 
@@ -886,6 +1175,10 @@ def get_all_context_for_query(query: str) -> str:
         "TLS": ["TUMOR LYSIS"],
         "GVHD": ["GVHD", "GRAFT-VERSUS-HOST"],
         "ON_TARGET_OFF_TUMOR": ["ON-TARGET OFF-TUMOR", "ON TARGET OFF TUMOR"],
+        "COAGULOPATHY": ["COAGULOPATHY", "DIC", "FIBRINOGEN"],
+        "CARDIAC_TOXICITY": ["CARDIAC", "TROPONIN", "CARDIOMYOPATHY"],
+        "RENAL_TOXICITY": ["RENAL", "AKI", "KIDNEY"],
+        "SECONDARY_MALIGNANCY": ["SECONDARY MALIGNANCY", "T-CELL LYMPHOMA", "INSERTIONAL"],
     }
     for tox_id, aliases in tox_aliases.items():
         if any(a in query_upper for a in aliases):
@@ -905,6 +1198,11 @@ def get_all_context_for_query(query: str) -> str:
         "point_of_care_manufacturing": ["POINT OF CARE", "POC MANUFACTURING", "DECENTRALIZED"],
         "lymphodepletion": ["LYMPHODEPLETION", "FLUDARABINE", "CYCLOPHOSPHAMIDE"],
         "vein_to_vein_time": ["VEIN-TO-VEIN", "TURNAROUND", "MANUFACTURING TIME"],
+        "non_viral_transposon": ["TRANSPOSON", "SLEEPING BEAUTY", "PIGGYBACK"],
+        "mrna_electroporation": ["MRNA", "ELECTROPORATION"],
+        "crispr_knock_in": ["CRISPR", "TRAC", "KNOCK-IN"],
+        "ipsc_derived": ["IPSC", "IPS CELL"],
+        "automated_manufacturing": ["AUTOMATED", "CLINIMACS", "PRODIGY"],
     }
     for proc_id, keywords in mfg_keywords.items():
         if any(kw in query_upper for kw in keywords):
@@ -964,7 +1262,7 @@ def get_knowledge_stats() -> Dict[str, int]:
 
 
 # =============================================================================
-# 4. CART_BIOMARKERS — Biomarker knowledge graph (~15 entries)
+# 4. CART_BIOMARKERS — Biomarker knowledge graph (~23 entries)
 # =============================================================================
 
 CART_BIOMARKERS: Dict[str, Dict[str, Any]] = {
@@ -1118,6 +1416,86 @@ CART_BIOMARKERS: Dict[str, Dict[str, Any]] = {
         "evidence_level": "validated",
         "key_references": ["PMID:28687837"],
     },
+    "tox": {
+        "full_name": "TOX (Thymocyte Selection Associated HMG Box)",
+        "type": "resistance",
+        "assay_method": "Flow cytometry (intracellular), scRNA-seq",
+        "clinical_cutoff": ">50% TOX+ in CAR-T product",
+        "predictive_value": "PPV 72% for poor persistence at 6 months",
+        "associated_outcome": "TOX high expression correlates with terminal T-cell exhaustion and reduced antitumor activity",
+        "evidence_level": "emerging",
+        "key_references": ["Khan et al. Nature 2019 PMID:31207603", "Scott et al. Nature 2019 PMID:31207604"],
+    },
+    "nr4a": {
+        "full_name": "NR4A Family (NR4A1/NR4A2/NR4A3)",
+        "type": "resistance",
+        "assay_method": "Flow cytometry, transcriptomic profiling",
+        "clinical_cutoff": "NR4A triple-positive >30% of CAR-T cells",
+        "predictive_value": "NR4A knockout CAR-T show 3-5x improved tumor rejection in preclinical models",
+        "associated_outcome": "NR4A transcription factors enforce T-cell exhaustion program downstream of chronic antigen stimulation",
+        "evidence_level": "emerging",
+        "key_references": ["Chen et al. Nature 2019 PMID:30814732", "Liu et al. Nature 2019 PMID:30814735"],
+    },
+    "il10": {
+        "full_name": "Interleukin-10 (IL-10)",
+        "type": "pharmacodynamic",
+        "assay_method": "ELISA, Luminex multiplex",
+        "clinical_cutoff": ">100 pg/mL within 72h post-infusion",
+        "predictive_value": "PPV 68% for concurrent or subsequent ICANS when IL-10 >100 pg/mL",
+        "associated_outcome": "IL-10 elevation predicts neurotoxicity independent of CRS grade; marker of monocyte/macrophage activation",
+        "evidence_level": "validated",
+        "key_references": ["Santomasso et al. Cancer Discov 2018 PMID:30425106", "Gust et al. Cancer Discov 2017 PMID:29025771"],
+    },
+    "ang2": {
+        "full_name": "Angiopoietin-2 (Ang-2)",
+        "type": "pharmacodynamic",
+        "assay_method": "ELISA",
+        "clinical_cutoff": ">5 ng/mL pre-infusion or >10 ng/mL peak",
+        "predictive_value": "PPV 75% for severe ICANS when Ang-2 elevated; Ang-2:Ang-1 ratio >2 correlates with BBB disruption",
+        "associated_outcome": "Endothelial activation marker predicting blood-brain barrier breakdown and neurotoxicity severity",
+        "evidence_level": "validated",
+        "key_references": ["Gust et al. Cancer Discov 2017 PMID:29025771", "Hay KA et al. Blood 2017 PMID:28924019"],
+    },
+    "antigen_density": {
+        "full_name": "Target Antigen Surface Density",
+        "type": "predictive",
+        "assay_method": "Quantitative flow cytometry (QIFIKIT/BD Quantibrite)",
+        "clinical_cutoff": "Antigen-specific: CD19 >1,000 molecules/cell; BCMA >1,500 molecules/cell",
+        "predictive_value": "Below threshold associated with 40-60% lower response rates; dose-response relationship for CAR-T killing",
+        "associated_outcome": "Low antigen density reduces CAR-T avidity and serial killing capacity, enabling tumor escape",
+        "evidence_level": "validated",
+        "key_references": ["Majzner et al. Cancer Discov 2020 PMID:31974172", "Walker et al. Mol Ther 2017 PMID:28110864"],
+    },
+    "tumor_burden": {
+        "full_name": "Baseline Tumor Burden (Metabolic Tumor Volume)",
+        "type": "prognostic",
+        "assay_method": "PET/CT (MTV calculation), LDH, bone marrow blast %",
+        "clinical_cutoff": "MTV >80 cm\u00b3 or marrow blasts >50% = high burden; LDH >500 U/L",
+        "predictive_value": "High tumor burden: 2-3x higher grade 3+ CRS risk, but paradoxically higher initial response rates",
+        "associated_outcome": "Predicts both toxicity severity (CRS/TLS) and response depth; used for risk-stratified management",
+        "evidence_level": "validated",
+        "key_references": ["Locke et al. Blood 2017 PMID:28924018", "Park et al. NEJM 2018 PMID:29385376"],
+    },
+    "d_dimer": {
+        "full_name": "D-Dimer",
+        "type": "monitoring",
+        "assay_method": "Immunoturbidimetric assay, latex agglutination",
+        "clinical_cutoff": ">4x ULN (typically >2,000 ng/mL FEU)",
+        "predictive_value": "D-dimer >4x ULN with grade 2+ CRS has 80% sensitivity for developing coagulopathy",
+        "associated_outcome": "Early indicator of CRS-associated DIC; serial monitoring guides cryoprecipitate and CRS management escalation",
+        "evidence_level": "emerging",
+        "key_references": ["Fried et al. Blood Adv 2019 PMID:31189560", "Lee DW et al. Biol Blood Marrow Transplant 2019 PMID:30359826"],
+    },
+    "troponin": {
+        "full_name": "High-Sensitivity Cardiac Troponin (hs-cTnI/hs-cTnT)",
+        "type": "monitoring",
+        "assay_method": "High-sensitivity immunoassay (Roche Elecsys, Abbott Architect)",
+        "clinical_cutoff": ">99th percentile URL (14 ng/L for hs-cTnI); serial rise >20% = acute injury",
+        "predictive_value": "Troponin elevation during CRS has 85% sensitivity for cardiac events; serial monitoring enables early intervention",
+        "associated_outcome": "Detects subclinical myocardial injury during CRS; guides cardiology referral and ICU escalation",
+        "evidence_level": "emerging",
+        "key_references": ["Alvi et al. JACC CardioOncol 2021 PMID:34396344", "Lefebvre et al. Circ Heart Fail 2020 PMID:32634040"],
+    },
 }
 
 
@@ -1262,6 +1640,23 @@ ENTITY_ALIASES: Dict[str, Dict[str, str]] = {
     "DEIMMUNIZATION": {"type": "immunogenicity", "canonical": "humanization_strategies"},
     "HLA": {"type": "immunogenicity", "canonical": "hla_restricted_epitopes"},
     "MHC": {"type": "immunogenicity", "canonical": "hla_restricted_epitopes"},
+    # New target aliases
+    "FCRH5": {"type": "target", "canonical": "FcRH5"},
+    "FCRL5": {"type": "target", "canonical": "FcRH5"},
+    "CS1": {"type": "target", "canonical": "SLAMF7"},
+    "CD319": {"type": "target", "canonical": "SLAMF7"},
+    "CLEC12A": {"type": "target", "canonical": "CLL1"},
+    "CD327": {"type": "target", "canonical": "CLL1"},
+    "CD135": {"type": "target", "canonical": "FLT3"},
+    "TACSTD2": {"type": "target", "canonical": "TROP2"},
+    "CD326": {"type": "target", "canonical": "EpCAM"},
+    # New biomarker aliases
+    "TOX": {"type": "biomarker", "canonical": "tox"},
+    "NR4A": {"type": "biomarker", "canonical": "nr4a"},
+    "NR4A1": {"type": "biomarker", "canonical": "nr4a"},
+    "D-DIMER": {"type": "biomarker", "canonical": "d_dimer"},
+    "TROPONIN": {"type": "biomarker", "canonical": "troponin"},
+    "ANGIOPOIETIN": {"type": "biomarker", "canonical": "ang2"},
 }
 
 

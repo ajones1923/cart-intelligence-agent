@@ -74,6 +74,9 @@ class AssayType(str, Enum):
     IN_VIVO = "in_vivo"
     PERSISTENCE = "persistence"
     EXHAUSTION = "exhaustion"
+    MIGRATION = "migration"
+    TRAFFICKING = "trafficking"
+    SERIAL_KILLING = "serial_killing"
 
 
 class ProcessStep(str, Enum):
@@ -83,6 +86,11 @@ class ProcessStep(str, Enum):
     FORMULATION = "formulation"
     RELEASE_TESTING = "release"
     CRYOPRESERVATION = "cryo"
+    NON_VIRAL = "non_viral"
+    MRNA_ELECTROPORATION = "mrna_electroporation"
+    CRISPR_KNOCK_IN = "crispr_knock_in"
+    IPSC_DERIVED = "ipsc_derived"
+    AUTOMATED = "automated"
 
 
 class FDAStatus(str, Enum):
@@ -104,6 +112,8 @@ class SafetyEventType(str, Enum):
     ORGAN_TOXICITY = "organ_toxicity"
     NEUROLOGIC = "neurologic"
     CARDIAC = "cardiac"
+    COAGULOPATHY = "coagulopathy"
+    RENAL = "renal"
 
 
 class BiomarkerType(str, Enum):

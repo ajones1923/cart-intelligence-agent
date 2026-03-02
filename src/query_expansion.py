@@ -79,10 +79,15 @@ TARGET_ANTIGEN_EXPANSION: Dict[str, List[str]] = {
     "flt3": [
         "FLT3", "CD135", "FMS-like tyrosine kinase 3",
         "AML", "FLT3-ITD", "midostaurin", "gilteritinib",
+        "FLT3-CAR-T", "AML FLT3", "AMG 553",
     ],
     "cll-1": [
         "CLL-1", "CLEC12A", "AML", "myeloid leukemia",
         "CLL1/CD33 bispecific",
+    ],
+    "cll1": [
+        "CLL-1", "CLL1", "CLEC12A", "CD371", "myeloid CLL-1",
+        "AML CLL-1 CAR-T", "leukemic stem cell marker",
     ],
 
     # --- T-cell malignancies ---
@@ -155,9 +160,32 @@ TARGET_ANTIGEN_EXPANSION: Dict[str, List[str]] = {
         "glioblastoma", "GBM", "intracranial delivery",
     ],
     "epcam": [
-        "EpCAM", "epithelial cell adhesion molecule",
+        "EpCAM", "CD326", "TACSTD1", "epithelial cell adhesion molecule",
+        "EpCAM CAR-T", "colorectal CAR-T", "peritoneal carcinomatosis",
         "colorectal cancer", "gastric cancer",
         "epithelial tumors",
+    ],
+
+    # --- Additional antigens ---
+    "fcrh5": [
+        "FcRH5", "FCRLA", "FCRL5", "Fc receptor-like 5", "MCARH109",
+        "multiple myeloma FcRH5", "tecvayli target",
+    ],
+    "slamf7": [
+        "SLAMF7", "CS1", "CD319", "SLAM family member 7", "UCART-CS1",
+        "CARAMBA", "elotuzumab target",
+    ],
+    "cd70": [
+        "CD70", "CD27 ligand", "TNFSF7", "CD27L", "PRGN-3006",
+        "AML CD70 CAR-T", "renal cell carcinoma CD70",
+    ],
+    "trop2": [
+        "TROP2", "TACSTD2", "trophoblast antigen", "sacituzumab target",
+        "triple-negative breast CAR-T", "solid tumor TROP2",
+    ],
+    "cd44v6": [
+        "CD44v6", "CD44 variant 6", "CD44v6 CAR-T", "MLM-CAR44.1",
+        "AML CD44v6", "pancreatic CD44v6",
     ],
 }
 
@@ -375,6 +403,33 @@ TOXICITY_EXPANSION: Dict[str, List[str]] = {
         "iCasp9", "inducible caspase 9",
         "truncated EGFR", "CD20 safety switch",
     ],
+
+    # --- Coagulopathy ---
+    "coagulopathy": [
+        "DIC", "disseminated intravascular coagulation", "fibrinogen consumption",
+        "coagulopathy", "D-dimer elevation", "coagulation cascade", "ISTH DIC score",
+    ],
+
+    # --- Cardiac toxicity ---
+    "cardiac toxicity": [
+        "cardiac toxicity", "troponin elevation", "cardiomyopathy",
+        "LV dysfunction", "cardiac arrest", "myocardial injury",
+        "BNP elevation", "arrhythmia", "cardio-oncology",
+    ],
+
+    # --- Renal toxicity ---
+    "renal toxicity": [
+        "renal toxicity", "acute kidney injury", "AKI",
+        "creatinine elevation", "dialysis", "TLS nephropathy",
+        "uric acid nephropathy", "electrolyte derangement",
+    ],
+
+    # --- Secondary malignancy ---
+    "secondary malignancy": [
+        "secondary malignancy", "T-cell lymphoma", "insertional mutagenesis",
+        "insertional oncogenesis", "clonal expansion", "FDA boxed warning",
+        "long-term follow-up", "integration site analysis",
+    ],
 }
 
 
@@ -515,6 +570,38 @@ MANUFACTURING_EXPANSION: Dict[str, List[str]] = {
         "Flu/Cy", "bendamustine",
         "T-cell depletion", "lymphopenia",
         "homeostatic expansion",
+    ],
+
+    # --- Transposon / non-viral gene transfer ---
+    "transposon": [
+        "Sleeping Beauty", "PiggyBac", "transposon", "non-viral gene transfer",
+        "DNA transposition", "transposase",
+    ],
+
+    # --- mRNA electroporation ---
+    "mrna electroporation": [
+        "mRNA CAR-T", "mRNA electroporation", "transient CAR expression",
+        "mRNA transfection", "repeated dosing", "non-integrating",
+    ],
+
+    # --- CRISPR knock-in ---
+    "crispr knock-in": [
+        "CRISPR knock-in", "TRAC integration", "site-specific integration",
+        "Cas9 RNP", "HDR template", "gene editing CAR-T", "Caribou CB-010",
+    ],
+
+    # --- iPSC manufacturing ---
+    "ipsc manufacturing": [
+        "iPSC-derived", "iPSC CAR-T", "induced pluripotent stem cell",
+        "FT819", "Fate Therapeutics", "universal donor",
+        "master cell bank", "allogeneic iPSC",
+    ],
+
+    # --- Automated manufacturing ---
+    "automated manufacturing": [
+        "CliniMACS Prodigy", "automated manufacturing", "closed-system",
+        "Cocoon platform", "Sepax", "decentralized manufacturing",
+        "point-of-care automated",
     ],
 }
 
@@ -936,6 +1023,42 @@ BIOMARKER_EXPANSION: Dict[str, List[str]] = {
     "cd4 cd8": [
         "CD4:CD8", "CD4/CD8 ratio", "T-cell composition",
         "defined composition", "product phenotype",
+    ],
+
+    # --- TOX exhaustion ---
+    "tox exhaustion": [
+        "TOX", "TOX transcription factor", "thymocyte selection",
+        "TOX exhaustion", "TOX+", "terminal exhaustion marker",
+    ],
+
+    # --- NR4A ---
+    "nr4a": [
+        "NR4A", "NR4A1", "NR4A2", "NR4A3", "NR4A family",
+        "NR4A knockout", "exhaustion transcription factor", "Nur77",
+    ],
+
+    # --- Antigen density ---
+    "antigen density": [
+        "antigen density", "target expression level", "QIFIKIT",
+        "molecules per cell", "antigen-low escape", "antigen threshold",
+    ],
+
+    # --- Tumor burden ---
+    "tumor burden": [
+        "tumor burden", "metabolic tumor volume", "MTV", "bulky disease",
+        "high tumor burden", "baseline disease burden", "marrow blast percentage",
+    ],
+
+    # --- D-dimer ---
+    "d-dimer": [
+        "D-dimer", "fibrin degradation products", "FDP",
+        "coagulation marker", "DIC marker", "fibrinolysis",
+    ],
+
+    # --- Troponin ---
+    "troponin": [
+        "troponin", "hs-cTnI", "hs-cTnT", "cardiac troponin",
+        "myocardial injury marker", "cardiac biomarker",
     ],
 }
 
