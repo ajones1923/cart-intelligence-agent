@@ -1,5 +1,10 @@
 # CAR-T Intelligence Agent
 
+
+![Architecture Infographic](docs/images/infographic.jpg)
+
+*Source: [cart-intelligence-agent](https://github.com/ajones1923/cart-intelligence-agent)*
+
 Cross-functional intelligence across the CAR-T cell therapy development lifecycle. Part of the [HCLS AI Factory](https://github.com/ajones1923/hcls-ai-factory).
 
 ![CAR-T Intelligence Agent on NVIDIA DGX Spark](Docs/CAR-T%20Intelligence%20Agent%20DGX%20Spark%20Infographic.png)
