@@ -1,7 +1,7 @@
 # Breaking Down Data Silos in CAR-T Cell Therapy Development: A Multi-Collection RAG Architecture for Cross-Functional Intelligence
 
 **Author:** Adam Jones
-**Date:** February 2026
+**Date:** March 2026
 **Version:** 1.2.0
 **License:** Apache 2.0
 
@@ -14,7 +14,7 @@ https://github.com/ajones1923/hcls-ai-factory
 
 Chimeric antigen receptor T-cell (CAR-T) therapy represents one of the most transformative advances in oncology, yet the data ecosystem supporting its development remains profoundly fragmented. Clinical researchers, manufacturing engineers, regulatory strategists, and pharmacovigilance scientists each operate within isolated information silos -- PubMed for literature, ClinicalTrials.gov for trial data, FDA databases for regulatory milestones, CIBMTR for real-world outcomes, and institutional databases for manufacturing records. A single cross-functional question such as "How do manufacturing parameters affect clinical response rates for CD19 CAR-T products?" requires manual synthesis across at least five distinct data sources, a process that can consume days of expert time.
 
-This paper presents the CAR-T Intelligence Agent, an AI-powered multi-collection retrieval-augmented generation (RAG) system that unifies 11 specialized vector collections containing 3,567,436 indexed vectors across the full CAR-T development lifecycle. The system employs 384-dimensional BGE-small-en-v1.5 embeddings, a 6-dictionary knowledge graph with 70 structured entries and 39 entity aliases, 12 query expansion maps mapping 169 keywords to 1,496 related terms, and Claude Sonnet 4.6 for evidence synthesis. Parallel search via ThreadPoolExecutor across all 11 collections delivers cross-functional answers with clickable PubMed and ClinicalTrials.gov citations in under 30 seconds. The system includes structured comparative analysis, citation relevance scoring, and multi-format export (Markdown, JSON, PDF). Comprising 16,744 lines of Python across 55 files with 241 automated tests, the agent runs on a single NVIDIA DGX Spark ($3,999) and is released under the Apache 2.0 license. We demonstrate that a carefully designed multi-collection RAG architecture can transform fragmented biomedical data into actionable cross-functional intelligence, democratizing access to CAR-T development knowledge that was previously available only to large pharmaceutical organizations with dedicated informatics teams.
+This paper presents the CAR-T Intelligence Agent, an AI-powered multi-collection retrieval-augmented generation (RAG) system that unifies 11 specialized vector collections containing 3,567,622 indexed vectors across the full CAR-T development lifecycle. The system employs 384-dimensional BGE-small-en-v1.5 embeddings, a 3-dictionary knowledge graph with 71 structured entries (34 targets, 17 toxicities, 20 manufacturing), 12 query expansion maps mapping 229 keywords to 1,961 related terms, and Claude Sonnet 4.6 for evidence synthesis. Parallel search via ThreadPoolExecutor across all 11 collections delivers cross-functional answers with clickable PubMed and ClinicalTrials.gov citations in under 30 seconds. The system includes structured comparative analysis, citation relevance scoring, and multi-format export (Markdown, JSON, PDF). Comprising 21,259 lines of Python across 61 files with 415 automated tests, the agent runs on a single NVIDIA DGX Spark ($3,999) and is released under the Apache 2.0 license. We demonstrate that a carefully designed multi-collection RAG architecture can transform fragmented biomedical data into actionable cross-functional intelligence, democratizing access to CAR-T development knowledge that was previously available only to large pharmaceutical organizations with dedicated informatics teams.
 
 ---
 
@@ -51,8 +51,8 @@ The CAR-T Intelligence Agent addresses these limitations through a multi-collect
 
 - Unifies **11 specialized vector collections** spanning the complete CAR-T lifecycle into a single query interface
 - Employs **parallel vector search** across all collections simultaneously, returning cross-functional results in milliseconds
-- Augments retrieval with a **structured knowledge graph** containing curated clinical data on 25 target antigens, 8 toxicity profiles, 10 manufacturing processes, 15 biomarkers, 6 FDA-approved products, and 6 immunogenicity topics
-- Expands queries using **12 domain-specific maps** that map 169 expert keywords to 1,496 related terms, dramatically improving recall
+- Augments retrieval with a **structured knowledge graph** containing curated clinical data on 34 target antigens, 17 toxicity profiles, 20 manufacturing processes, 23 biomarkers, 6 FDA-approved products, and 6 immunogenicity topics
+- Expands queries using **12 domain-specific maps** that map 229 expert keywords to 1,961 related terms, dramatically improving recall
 - Synthesizes evidence through **Claude Sonnet 4.6** with a domain-expert system prompt spanning 12 areas of CAR-T expertise
 - Provides **clickable citation links** to PubMed and ClinicalTrials.gov for every evidence item, maintaining the traceability that scientific work demands
 - Runs on a **single NVIDIA DGX Spark** ($3,999), democratizing access to sophisticated CAR-T intelligence
@@ -118,11 +118,11 @@ User Query
 (ThreadPoolExecutor, IVF_FLAT / COSINE)                             |
     |                                                               |
     v                                                               |
-[Query Expansion] (12 maps, 169 keywords -> 1,496 terms)           |
+[Query Expansion] (12 maps, 229 keywords -> 1,961 terms)           |
     |                                                               |
     v                                                               |
 [Knowledge Graph Augmentation]                                      |
-(25 targets, 8 toxicities, 10 mfg, 15 biomarkers,                  |
+(34 targets, 17 toxicities, 20 mfg, 23 biomarkers,                 |
  6 regulatory, 6 immunogenicity)                                    |
     |                                                               |
     v                                                               v
@@ -144,16 +144,16 @@ The system maintains 11 Milvus collections, each with a purpose-built schema con
 |---|-----------|---------|---------------|--------|-------------|
 | 1 | `cart_literature` | 5,047 | id, title, text_chunk, source_type, year, cart_stage, target_antigen, disease, keywords, journal | PubMed E-utilities | Published research papers and patents |
 | 2 | `cart_trials` | 973 | id, title, text_summary, phase, status, sponsor, target_antigen, car_generation, costimulatory, disease, enrollment, start_year, outcome_summary | ClinicalTrials.gov V2 API | Clinical trial registrations |
-| 3 | `cart_constructs` | 6 | id, name, text_summary, target_antigen, scfv_origin, costimulatory_domain, signaling_domain, generation, hinge_tm, vector_type, fda_status, known_toxicities | Curated (6 FDA products) | CAR molecular architecture |
-| 4 | `cart_assays` | 45 | id, text_summary, assay_type, construct_id, target_antigen, cell_line, effector_ratio, key_metric, metric_value, outcome, notes | Curated from ELIANA, ZUMA-1, KarMMa, CARTITUDE-1 | Functional assay results |
-| 5 | `cart_manufacturing` | 30 | id, text_summary, process_step, vector_type, parameter, parameter_value, target_spec, met_spec, batch_id, notes | Curated CMC data | Manufacturing process records |
-| 6 | `cart_safety` | 40 | id, text_summary, product, event_type, severity_grade, onset_timing, incidence_rate, management_protocol, outcome, reporting_source, year | FAERS, labels, trials | Adverse events and pharmacovigilance |
-| 7 | `cart_biomarkers` | 43 | id, text_summary, biomarker_name, biomarker_type, assay_method, clinical_cutoff, predictive_value, associated_outcome, target_antigen, disease, evidence_level | Published correlative studies | Predictive and prognostic biomarkers |
-| 8 | `cart_regulatory` | 25 | id, text_summary, product, regulatory_event, date, agency, indication, decision, conditions, pivotal_trial | FDA/EMA public records | Regulatory milestones and approvals |
-| 9 | `cart_sequences` | 27 | id, text_summary, construct_name, target_antigen, scfv_clone, binding_affinity_kd, heavy_chain_vregion, light_chain_vregion, framework, species_origin, immunogenicity_risk, structural_notes | Patents, UniProt, PDB | Molecular and structural data |
-| 10 | `cart_realworld` | 30 | id, text_summary, study_type, data_source, product, indication, population_size, median_followup_months, primary_endpoint, outcome_value, setting, special_population | CIBMTR, EBMT, institutional | Real-world evidence and outcomes |
+| 3 | `cart_constructs` | 41 | id, name, text_summary, target_antigen, scfv_origin, costimulatory_domain, signaling_domain, generation, hinge_tm, vector_type, fda_status, known_toxicities | Curated (6 FDA products) | CAR molecular architecture |
+| 4 | `cart_assays` | 75 | id, text_summary, assay_type, construct_id, target_antigen, cell_line, effector_ratio, key_metric, metric_value, outcome, notes | Curated from ELIANA, ZUMA-1, KarMMa, CARTITUDE-1 | Functional assay results |
+| 5 | `cart_manufacturing` | 56 | id, text_summary, process_step, vector_type, parameter, parameter_value, target_spec, met_spec, batch_id, notes | Curated CMC data | Manufacturing process records |
+| 6 | `cart_safety` | 71 | id, text_summary, product, event_type, severity_grade, onset_timing, incidence_rate, management_protocol, outcome, reporting_source, year | FAERS, labels, trials | Adverse events and pharmacovigilance |
+| 7 | `cart_biomarkers` | 60 | id, text_summary, biomarker_name, biomarker_type, assay_method, clinical_cutoff, predictive_value, associated_outcome, target_antigen, disease, evidence_level | Published correlative studies | Predictive and prognostic biomarkers |
+| 8 | `cart_regulatory` | 40 | id, text_summary, product, regulatory_event, date, agency, indication, decision, conditions, pivotal_trial | FDA/EMA public records | Regulatory milestones and approvals |
+| 9 | `cart_sequences` | 40 | id, text_summary, construct_name, target_antigen, scfv_clone, binding_affinity_kd, heavy_chain_vregion, light_chain_vregion, framework, species_origin, immunogenicity_risk, structural_notes | Patents, UniProt, PDB | Molecular and structural data |
+| 10 | `cart_realworld` | 54 | id, text_summary, study_type, data_source, product, indication, population_size, median_followup_months, primary_endpoint, outcome_value, setting, special_population | CIBMTR, EBMT, institutional | Real-world evidence and outcomes |
 | 11 | `genomic_evidence` | 3,561,170 | id, text_summary, chrom, pos, ref, alt, qual, gene, consequence, impact, genotype, clinical_significance, rsid, disease_associations, am_pathogenicity, am_class | HCLS AI Factory Stage 1+2 | Shared genomic variant data (read-only) |
-| | **Total** | **3,567,436** | | | |
+| | **Total** | **3,567,622** | | | |
 
 All collections use 384-dimensional float vectors generated by BGE-small-en-v1.5, indexed with IVF_FLAT (nlist=1024) and searched with COSINE similarity (nprobe=16).
 
@@ -193,16 +193,16 @@ Each record's embedding text is generated by a model-specific `to_embedding_text
 
 ## 4. Knowledge Augmentation
 
-### 4.1 The 6-Dictionary Knowledge Graph
+### 4.1 The 3-Dictionary Knowledge Graph
 
-Unlike purely retrieval-based systems, the CAR-T Intelligence Agent augments vector search results with structured knowledge from a curated domain knowledge graph. This graph is implemented as six Python dictionaries containing 70 entries and 39 entity aliases:
+Unlike purely retrieval-based systems, the CAR-T Intelligence Agent augments vector search results with structured knowledge from a curated domain knowledge graph. This graph is implemented as three Python dictionaries containing 71 entries and 54 entity aliases:
 
 | Dictionary | Entries | Content |
 |-----------|---------|---------|
-| `CART_TARGETS` | 25 | Target antigens with expression profiles, approved products, key trials, resistance mechanisms, toxicity profiles, UniProt IDs |
-| `CART_TOXICITIES` | 8 | CRS, ICANS, B-cell aplasia, HLH/MAS, cytopenias, TLS, GvHD, on-target/off-tumor -- each with grading systems, incidence, timing, management protocols, biomarkers, risk factors |
-| `CART_MANUFACTURING` | 10 | Lentiviral/retroviral transduction, T-cell activation, ex vivo expansion, leukapheresis, cryopreservation, release testing, point-of-care manufacturing, lymphodepletion, vein-to-vein logistics |
-| `CART_BIOMARKERS` | 15 | Ferritin, CRP, IL-6, sIL-2R, CAR-T expansion Cmax, Tcm%, CD4:CD8 ratio, LDH, PD-1, LAG-3, TIM-3, MRD, ctDNA, sBCMA, IFN-gamma -- each with assay method, clinical cutoff, predictive value, evidence level |
+| `CART_TARGETS` | 34 | Target antigens with expression profiles, approved products, key trials, resistance mechanisms, toxicity profiles, UniProt IDs |
+| `CART_TOXICITIES` | 17 | CRS, ICANS, B-cell aplasia, HLH/MAS, cytopenias, TLS, GvHD, on-target/off-tumor, and 4 additional profiles -- each with grading systems, incidence, timing, management protocols, biomarkers, risk factors |
+| `CART_MANUFACTURING` | 20 | Lentiviral/retroviral transduction, T-cell activation, ex vivo expansion, leukapheresis, cryopreservation, release testing, point-of-care manufacturing, lymphodepletion, vein-to-vein logistics, and 5 additional processes |
+| `CART_BIOMARKERS` | 23 | Ferritin, CRP, IL-6, sIL-2R, CAR-T expansion Cmax, Tcm%, CD4:CD8 ratio, LDH, PD-1, LAG-3, TIM-3, MRD, ctDNA, sBCMA, IFN-gamma, and 8 additional biomarkers -- each with assay method, clinical cutoff, predictive value, evidence level |
 | `CART_REGULATORY` | 6 | All FDA-approved products with approval dates, indications, pivotal trials, designations (Breakthrough Therapy, RMAT), subsequent approvals, REMS programs, EMA approval dates |
 | `CART_IMMUNOGENICITY` | 6 | Murine scFv immunogenicity, humanization strategies, ADA clinical impact, HLA-restricted epitopes, immunogenicity testing paradigm, allogeneic HLA considerations |
 
@@ -210,7 +210,7 @@ When a query mentions a target antigen (e.g., "CD19"), a toxicity (e.g., "CRS"),
 
 ### 4.2 Entity Alias Resolution
 
-The knowledge graph includes 39 entity aliases that map alternative names to canonical entries:
+The knowledge graph includes 54 entity aliases that map alternative names to canonical entries:
 
 - **Product aliases:** Kymriah/tisagenlecleucel, Yescarta/axicabtagene ciloleucel, and so on for all six products (12 aliases)
 - **Costimulatory domain aliases:** 4-1BB/CD137, CD28, OX40/CD134, ICOS (5 aliases)
@@ -222,7 +222,7 @@ This alias resolution is critical for comparative analysis (Section 6), where th
 
 ### 4.3 Context Functions
 
-Five context retrieval functions (`get_target_context`, `get_toxicity_context`, `get_manufacturing_context`, `get_biomarker_context`, `get_regulatory_context`, `get_immunogenicity_context`) format knowledge graph entries into structured markdown text. A master function, `get_all_context_for_query`, scans the full query text against all six dictionaries using keyword matching and returns combined context for all detected entities.
+Five context retrieval functions (`get_target_context`, `get_toxicity_context`, `get_manufacturing_context`, `get_biomarker_context`, `get_regulatory_context`, `get_immunogenicity_context`) format knowledge graph entries into structured markdown text. A master function, `get_all_context_for_query`, scans the full query text against all three dictionaries using keyword matching and returns combined context for all detected entities.
 
 The knowledge graph augmentation addresses a fundamental weakness of pure vector retrieval: embedding similarity can surface relevant documents, but it cannot provide the structured clinical parameters (grading systems, incidence rates, management protocols, dosing regimens) that clinicians and researchers need. By injecting this structured context alongside retrieved evidence, the LLM can generate responses that are both evidence-grounded and clinically precise.
 
@@ -240,23 +240,23 @@ The system implements 12 domain-specific query expansion maps organized by categ
 
 | # | Category | Keywords | Terms | Examples |
 |---|----------|----------|-------|---------|
-| 1 | Target Antigen | 26 | 196 | "cd19" expands to CD19, B-ALL, DLBCL, tisagenlecleucel, FMC63, ... |
+| 1 | Target Antigen | 32 | 244 | "cd19" expands to CD19, B-ALL, DLBCL, tisagenlecleucel, FMC63, ... |
 | 2 | Disease | 16 | 143 | "dlbcl" expands to DLBCL, diffuse large B-cell lymphoma, CD19, Yescarta, Breyanzi, GCB subtype, ... |
-| 3 | Toxicity | 14 | 136 | "crs" expands to CRS, cytokine release syndrome, tocilizumab, IL-6, ferritin, Lee grading, ... |
-| 4 | Manufacturing | 16 | 181 | "expansion" expands to T-cell expansion, Dynabeads, IL-2, IL-7, G-Rex, CliniMACS Prodigy, ... |
+| 3 | Toxicity | 18 | 168 | "crs" expands to CRS, cytokine release syndrome, tocilizumab, IL-6, ferritin, Lee grading, ... |
+| 4 | Manufacturing | 21 | 215 | "expansion" expands to T-cell expansion, Dynabeads, IL-2, IL-7, G-Rex, CliniMACS Prodigy, ... |
 | 5 | Mechanism | 19 | 224 | "exhaustion" expands to T-cell exhaustion, PD-1, LAG-3, TIM-3, TOX, tonic signaling, ... |
 | 6 | Construct | 20 | 206 | "bispecific" expands to bispecific CAR, tandem CAR, OR-gate logic, CD19/CD22, ... |
 | 7 | Safety | 8 | 69 | "pharmacovigilance" expands to post-market surveillance, FAERS, adverse event reporting, REMS, ... |
-| 8 | Biomarker | 12 | 78 | "mrd" expands to MRD, minimal residual disease, flow cytometry MRD, measurable residual disease, ... |
+| 8 | Biomarker | 18 | 117 | "mrd" expands to MRD, minimal residual disease, flow cytometry MRD, measurable residual disease, ... |
 | 9 | Regulatory | 8 | 46 | "breakthrough" expands to breakthrough therapy, BTD, expedited program, FDA designation, ... |
 | 10 | Sequence | 8 | 54 | "scfv" expands to scFv, single-chain variable fragment, VH, VL, linker, FMC63, nanobody, ... |
 | 11 | Real-World | 10 | 65 | "cibmtr" expands to CIBMTR, transplant registry, national registry, ... |
 | 12 | Immunogenicity | 12 | 98 | "humanization" expands to humanized antibody, CDR grafting, deimmunization, framework selection, ... |
-| | **Total** | **169** | **1,496** | |
+| | **Total** | **229** | **1,961** | |
 
 ### 5.3 Expansion Execution
 
-When a query is processed, the `expand_query()` function scans the lowercase query text against all 169 keywords across the 12 maps. Matched terms are deduplicated and returned as a sorted list. The RAG engine then processes the top 5 expansion terms through a dual strategy:
+When a query is processed, the `expand_query()` function scans the lowercase query text against all 229 keywords across the 12 maps. Matched terms are deduplicated and returned as a sorted list. The RAG engine then processes the top 5 expansion terms through a dual strategy:
 
 1. **Antigen terms** (those matching the 28 known target antigens) are used as field-level filters on collections with `target_antigen` metadata, ensuring precise antigen-specific retrieval.
 2. **Non-antigen terms** are re-embedded using BGE-small-en-v1.5 and used for semantic search across all collections, broadening coverage to conceptually related documents.
@@ -286,16 +286,16 @@ The `ClinicalTrialsIngestPipeline` queries the ClinicalTrials.gov V2 API for CAR
 
 Six additional collection types are populated with curated seed data representing reference-quality records:
 
-- **Constructs** (6 records): Complete molecular architecture of all 6 FDA-approved CAR-T products, including scFv clone origin, costimulatory domain, signaling domain, hinge/transmembrane region, vector type, and known toxicity profile.
-- **Assays** (45 records): Functional data curated from landmark publications (ELIANA, ZUMA-1, KarMMa, CARTITUDE-1), covering cytotoxicity assays, cytokine profiling, persistence measurements, exhaustion marker expression, and resistance readouts.
-- **Manufacturing** (30 records): CMC process data spanning transduction, expansion, harvest, cryopreservation, release testing, logistics, cost analysis, and emerging platforms (point-of-care, allogeneic, non-viral).
-- **Safety** (40 records): Adverse event profiles for approved products, sourced from product labeling, pivotal trial safety tables, and FAERS data.
-- **Biomarkers** (43 records): Predictive, prognostic, pharmacodynamic, monitoring, and resistance biomarkers with assay methods, clinical cutoffs, and evidence levels.
-- **Regulatory** (25 records): FDA and EMA regulatory milestones including BLA filings, approval decisions, label updates, Breakthrough Therapy and RMAT designations, and REMS requirements.
-- **Sequences** (27 records): Molecular data including scFv sequences, CDR region annotations, binding affinity measurements, framework assignments, species origin, and immunogenicity risk assessments.
-- **Real-World** (30 records): Registry-based outcomes from CIBMTR, institutional retrospective analyses, community vs. academic center comparisons, special population outcomes (elderly, bridging therapy), and health disparities data.
+- **Constructs** (41 records): Complete molecular architecture of all 6 FDA-approved CAR-T products, including scFv clone origin, costimulatory domain, signaling domain, hinge/transmembrane region, vector type, and known toxicity profile.
+- **Assays** (75 records): Functional data curated from landmark publications (ELIANA, ZUMA-1, KarMMa, CARTITUDE-1), covering cytotoxicity assays, cytokine profiling, persistence measurements, exhaustion marker expression, and resistance readouts.
+- **Manufacturing** (56 records): CMC process data spanning transduction, expansion, harvest, cryopreservation, release testing, logistics, cost analysis, and emerging platforms (point-of-care, allogeneic, non-viral).
+- **Safety** (71 records): Adverse event profiles for approved products, sourced from product labeling, pivotal trial safety tables, and FAERS data.
+- **Biomarkers** (60 records): Predictive, prognostic, pharmacodynamic, monitoring, and resistance biomarkers with assay methods, clinical cutoffs, and evidence levels.
+- **Regulatory** (40 records): FDA and EMA regulatory milestones including BLA filings, approval decisions, label updates, Breakthrough Therapy and RMAT designations, and REMS requirements.
+- **Sequences** (40 records): Molecular data including scFv sequences, CDR region annotations, binding affinity measurements, framework assignments, species origin, and immunogenicity risk assessments.
+- **Real-World** (54 records): Registry-based outcomes from CIBMTR, institutional retrospective analyses, community vs. academic center comparisons, special population outcomes (elderly, bridging therapy), and health disparities data.
 
-In total, the 10 agent-owned collections contain 6,266 curated records. Combined with the 3,561,170 shared genomic variants, the system indexes 3,567,436 vectors.
+In total, the 10 agent-owned collections contain 6,452 curated records. Combined with the 3,561,170 shared genomic variants, the system indexes 3,567,622 vectors.
 
 ### 6.4 Automated Weekly Refresh
 
@@ -315,7 +315,7 @@ Comparative analysis is implemented as a pipeline within the `CARTRAGEngine`:
 
 1. **Detection:** The engine checks for comparative keywords ("compare," "vs," "versus," "comparing") in the query text.
 2. **Entity Parsing:** Regular expressions extract two entity names from the query, handling patterns like "X vs Y," "compare X and Y," and "X versus Y." Trailing descriptors ("costimulatory domains," "resistance mechanisms") are stripped.
-3. **Entity Resolution:** Each parsed entity name is resolved against the knowledge graph through the `resolve_comparison_entity()` function, which checks (in priority order) target antigens, product aliases, toxicities, manufacturing processes, and biomarkers. The 39 entity aliases enable resolution of alternative names (e.g., "tisagenlecleucel" resolves to "Kymriah" with target "CD19").
+3. **Entity Resolution:** Each parsed entity name is resolved against the knowledge graph through the `resolve_comparison_entity()` function, which checks (in priority order) target antigens, product aliases, toxicities, manufacturing processes, and biomarkers. The 54 entity aliases enable resolution of alternative names (e.g., "tisagenlecleucel" resolves to "Kymriah" with target "CD19").
 4. **Dual Retrieval:** Two independent `retrieve()` calls execute with entity-specific filters. If both entities resolve to target antigens, each retrieval applies a `target_antigen` field filter to relevant collections.
 5. **Comparative Prompt Construction:** A specialized prompt template instructs the LLM to produce: (a) a comparison table with key dimensions as rows and the two entities as columns, (b) advantages of each entity, (c) limitations of each entity, and (d) a clinical context paragraph explaining when each might be preferred.
 6. **Structured Output:** Results are returned as a `ComparativeResult` model with separate `evidence_a` and `evidence_b` objects, enabling the UI to display entity-grouped evidence with color-coded headers.
@@ -326,11 +326,11 @@ The comparative system supports five entity types:
 
 | Entity Type | Examples | Resolution Strategy |
 |-------------|---------|-------------------|
-| Target antigens | CD19 vs BCMA, CD22 vs CD20 | Direct match in `CART_TARGETS` (25 entries) |
+| Target antigens | CD19 vs BCMA, CD22 vs CD20 | Direct match in `CART_TARGETS` (34 entries) |
 | FDA products | Kymriah vs Yescarta, Abecma vs Carvykti | Alias table (12 product aliases) with target antigen mapping |
 | Costimulatory domains | 4-1BB vs CD28, OX40 vs ICOS | Alias table (5 costimulatory aliases) |
-| Toxicities | CRS vs ICANS | Match in `CART_TOXICITIES` (8 entries) |
-| Manufacturing processes | Lentiviral vs retroviral | Match in `CART_MANUFACTURING` (10 entries) |
+| Toxicities | CRS vs ICANS | Match in `CART_TOXICITIES` (17 entries) |
+| Manufacturing processes | Lentiviral vs retroviral | Match in `CART_MANUFACTURING` (20 entries) |
 
 Unrecognized entities gracefully fall back to the standard (non-comparative) query path, ensuring no query fails due to entity resolution.
 
@@ -418,15 +418,15 @@ Measured on NVIDIA DGX Spark (GB10 GPU, 128 GB unified memory):
 |--------|-------|
 | PubMed ingestion (5,047 abstracts) | ~15 minutes |
 | ClinicalTrials.gov ingestion (973 trials) | ~3 minutes |
-| Seed data ingestion (266 records across 8 categories) | ~5 minutes |
+| Seed data ingestion (630 records across 13 categories) | ~5 minutes |
 | Vector search (11 collections, top-5 each, parallel) | 12-16 ms (warm cache) |
 | Comparative dual retrieval (2 x 11 collections) | ~365 ms |
 | Full RAG query (search + knowledge + Claude) | ~24 seconds |
 | Comparative RAG query (dual search + Claude) | ~30 seconds |
 | Cosine similarity scores (demo queries) | 0.74 - 0.90 |
-| Total indexed vectors | 3,567,436 |
-| Total Python codebase | 16,744 lines across 55 files |
-| Automated test count | 241 |
+| Total indexed vectors | 3,567,622 |
+| Total Python codebase | 21,259 lines across 61 files |
+| Automated test count | 415 |
 
 ### 10.2 Query Capabilities
 
@@ -489,7 +489,17 @@ The CAR-T agent accesses this collection in read-only mode, enabling queries tha
 
 This shared-collection architecture avoids data duplication while enabling specialized agents to access cross-domain data seamlessly. The Milvus database instance running on localhost:19530 serves both the parent pipeline and the CAR-T agent, with each maintaining independent collections under a unified vector index.
 
-### 11.3 Platform Consistency
+### 11.3 Three-Engine Architecture and 11 Agents
+
+The HCLS AI Factory employs a three-engine architecture:
+
+1. **Genomic Foundation Engine** -- GPU-accelerated variant calling (Parabricks/DeepVariant/BWA-MEM2)
+2. **Precision Intelligence Network** -- 11 domain-specialized RAG agents (Precision Oncology, CAR-T, Biomarker, Clinical Trial, Cardiology, Neurology, PGx, Imaging, Single-Cell, Autoimmune, Rare Disease) providing cross-functional clinical intelligence
+3. **Therapeutic Discovery Engine** -- BioNeMo/DiffDock/RDKit for molecular generation, docking, and lead optimization
+
+The CAR-T agent coordinates with 5 peer agents via `cross_modal/cross_agent.py` -- Biomarker, Oncology, Single-Cell, Cardiology, and Clinical Trial -- and exposes an `/integrated-assessment` endpoint for multi-agent clinical synthesis.
+
+### 11.4 Platform Consistency
 
 The CAR-T Intelligence Agent follows the architectural patterns established by the parent platform:
 
@@ -502,53 +512,73 @@ The CAR-T Intelligence Agent follows the architectural patterns established by t
 
 ---
 
-## 12. Discussion
+## 12. Pediatric CAR-T Applications
 
-### 12.1 Implications for CAR-T Development
+### 12.1 Tisagenlecleucel for Pediatric ALL
+
+Tisagenlecleucel (Kymriah) was the first FDA-approved CAR-T product, receiving approval in August 2017 for pediatric and young adult patients with relapsed or refractory B-cell acute lymphoblastic leukemia (B-ALL). The pivotal ELIANA trial (NCT02435849) demonstrated an 82% complete remission (CR) rate in 75 evaluable patients aged 3-21 years. The CAR-T Intelligence Agent encodes ELIANA trial data, response rates, durability data, and manufacturing specifications within its knowledge graph and vector collections, enabling evidence-grounded queries about pediatric CAR-T outcomes.
+
+### 12.2 CD22 Targeting for CD19-Negative Relapse
+
+Antigen escape via CD19 loss is the primary resistance mechanism in pediatric ALL following CD19 CAR-T therapy, occurring in approximately 30-60% of relapses. CD22-directed CAR-T therapy represents the leading salvage strategy for CD19-negative relapse. The agent's resistance knowledge graph links CD19 loss mechanisms to CD22 CAR-T alternatives, and the trial matcher identifies open CD22 CAR-T trials for patients with documented CD19-negative relapse.
+
+### 12.3 GD2-Targeted CAR-T for Neuroblastoma
+
+GD2 (disialoganglioside) is a validated target for neuroblastoma immunotherapy, with GD2-directed CAR-T cells showing promising early-phase results in high-risk MYCN-amplified neuroblastoma. The agent's target antigen knowledge graph includes GD2 biology, manufacturing considerations for GD2 CAR-T constructs, and the unique safety profile (pain syndrome distinct from CRS) associated with GD2 targeting.
+
+### 12.4 Pediatric CRS and ICANS Management
+
+Cytokine release syndrome (CRS) and immune effector cell-associated neurotoxicity syndrome (ICANS) present differently in pediatric patients compared to adults. The agent's safety knowledge base encodes pediatric-specific CRS grading criteria, weight-based tocilizumab dosing (12 mg/kg for patients under 30 kg), pediatric ICANS assessment scales, and age-appropriate supportive care protocols. The biomarker correlation engine links pre-infusion ferritin, CRP, and tumor burden to CRS severity risk in pediatric patients.
+
+---
+
+## 13. Discussion
+
+### 13.1 Implications for CAR-T Development
 
 The CAR-T Intelligence Agent demonstrates that the data fragmentation problem in cell therapy development is solvable with current technology at accessible cost. The key insight is that the diversity of CAR-T data types (literature, trials, manufacturing, safety, biomarkers, regulatory, sequences, real-world evidence, genomics) requires a multi-collection architecture rather than a single monolithic vector store. Each collection's typed schema ensures that domain-specific metadata is preserved and queryable, while the parallel search and score-weighted merge mechanism provides a unified query experience.
 
 The knowledge graph augmentation addresses a practical limitation of pure RAG systems: while vector retrieval can surface relevant documents, it cannot provide the structured, curated clinical parameters (grading criteria, dosing protocols, management algorithms) that practitioners need. The combination of retrieval-based evidence and structured knowledge produces responses that are both evidence-grounded and clinically actionable.
 
-### 12.2 Democratization of Intelligence
+### 13.2 Democratization of Intelligence
 
 The pharmaceutical industry's current informatics infrastructure creates a two-tier system: large companies with dedicated data science teams have access to comprehensive cross-functional intelligence, while academic centers, smaller biotechnology companies, and institutions in lower-resource settings rely on manual literature review and fragmented tools. The CAR-T Intelligence Agent, running on a $3,999 workstation with open-source components (Milvus, BGE-small, Streamlit, Python) and a pay-per-query cloud LLM, demonstrates that this capability gap can be substantially narrowed.
 
 The Apache 2.0 license ensures that the system can be freely adapted, extended, and deployed by any organization. The modular architecture -- with clearly separated ingestion pipelines, collection schemas, knowledge graph, query expansion, RAG engine, and export modules -- is designed for extension. Adding a new data type (e.g., patent claims, conference abstracts, electronic health record extracts) requires implementing a new collection schema, a new ingest parser, and registering the collection with the RAG engine.
 
-### 12.3 The Shift from Search to Synthesis
+### 13.3 The Shift from Search to Synthesis
 
 Traditional biomedical informatics tools are fundamentally search tools: they help users find relevant documents, which users must then read, interpret, and synthesize manually. The CAR-T Intelligence Agent represents a shift from search to synthesis. By combining multi-collection retrieval, knowledge graph augmentation, query expansion, and LLM synthesis, the system produces cross-functional answers that would require hours of expert effort to assemble manually.
 
 This shift does not replace expert judgment -- the system is designed as an intelligence augmentation tool, not a decision-making system. Every claim is grounded in cited evidence, every citation is linked to its primary source, and uncertainty is explicitly acknowledged. The goal is to accelerate the intelligence-gathering phase of CAR-T development, freeing expert time for the higher-order activities of interpretation, decision-making, and innovation.
 
-### 12.4 Limitations
+### 13.4 Limitations
 
 Several limitations should be acknowledged:
 
 1. **Corpus coverage:** While the system indexes over 5,000 PubMed abstracts and 973 clinical trials, this represents a fraction of the total CAR-T literature. Full-text article access would substantially improve evidence quality but introduces licensing constraints.
-2. **Manufacturing data scarcity:** Manufacturing process data is poorly represented in the public domain. The 30 curated records in `cart_manufacturing` provide reference-quality examples but do not capture the diversity of manufacturing approaches across the industry.
+2. **Manufacturing data scarcity:** Manufacturing process data is poorly represented in the public domain. The 56 curated records in `cart_manufacturing` provide reference-quality examples but do not capture the diversity of manufacturing approaches across the industry.
 3. **Real-time data:** The weekly refresh cadence means the system may lag behind breaking developments by up to 7 days for literature and trials.
 4. **LLM dependency:** The synthesis step requires a cloud LLM API call, introducing latency (~20-25 seconds per query) and a dependency on external infrastructure. On-device LLM deployment (e.g., via NVIDIA NIM on the DGX Spark) is a future direction that would eliminate this dependency.
 5. **Evaluation rigor:** While the system produces high-quality responses on curated demo queries, systematic evaluation against expert-annotated benchmarks has not yet been conducted.
 
 ---
 
-## 13. Conclusion
+## 14. Conclusion
 
-### 13.1 Key Contributions
+### 14.1 Key Contributions
 
 This paper has presented the CAR-T Intelligence Agent, a multi-collection RAG system that addresses the data fragmentation challenge in CAR-T cell therapy development. The system's key contributions are:
 
 1. **Multi-collection RAG architecture:** 11 specialized Milvus collections with typed schemas, parallel search via ThreadPoolExecutor, and score-weighted merge -- enabling a single query to retrieve evidence across the full CAR-T lifecycle.
-2. **Domain knowledge augmentation:** A 6-dictionary knowledge graph (70 entries, 39 aliases) providing structured clinical context on targets, toxicities, manufacturing, biomarkers, regulatory milestones, and immunogenicity.
-3. **Intelligent query expansion:** 12 maps with 169 keywords expanding to 1,496 terms, using a dual strategy (field-filter for antigens, semantic re-embedding for non-antigens) that significantly improves recall without sacrificing precision.
+2. **Domain knowledge augmentation:** A 3-dictionary knowledge graph (71 entries, 54 aliases) providing structured clinical context on targets, toxicities, manufacturing, biomarkers, regulatory milestones, and immunogenicity.
+3. **Intelligent query expansion:** 12 maps with 229 keywords expanding to 1,961 terms, using a dual strategy (field-filter for antigens, semantic re-embedding for non-antigens) that significantly improves recall without sacrificing precision.
 4. **Structured comparative analysis:** Auto-detection and resolution of "X vs Y" queries with dual retrieval, entity-grouped evidence, and structured output (comparison tables, advantages/limitations, clinical context).
 5. **Citation provenance:** Every evidence item carries a clickable link to its primary source, maintaining the traceability that scientific work demands.
 6. **Hardware democratization:** The complete system runs on a single NVIDIA DGX Spark ($3,999), reducing the infrastructure barrier from hundreds of thousands of dollars to under $4,000.
-7. **Open-source availability:** 16,744 lines of Python across 55 files, 241 automated tests, released under the Apache 2.0 license.
+7. **Open-source availability:** 21,259 lines of Python across 61 files, 415 automated tests, released under the Apache 2.0 license.
 
-### 13.2 Future Directions
+### 14.2 Future Directions
 
 Several extensions are planned or under investigation:
 
@@ -560,13 +590,13 @@ Several extensions are planned or under investigation:
 - **Systematic evaluation** using expert-annotated question-answer benchmarks from CAR-T clinical teams.
 - **Integration with electronic health records** for institution-specific outcome analysis and real-time pharmacovigilance.
 
-### 13.3 Closing Remarks
+### 14.3 Closing Remarks
 
 The CAR-T field is generating data at an unprecedented rate -- hundreds of new publications monthly, dozens of new trial registrations, continuous post-market safety reports, expanding real-world evidence databases. The challenge is no longer data generation but data integration and synthesis. The CAR-T Intelligence Agent demonstrates that a carefully architected multi-collection RAG system, augmented with domain-specific knowledge graphs and running on accessible hardware, can transform this fragmented data landscape into actionable cross-functional intelligence. By open-sourcing this system, we aim to accelerate CAR-T development for the benefit of patients worldwide.
 
 ---
 
-## 14. References
+## 15. References
 
 ### Foundational CAR-T Publications
 

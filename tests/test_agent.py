@@ -206,6 +206,79 @@ class TestSearchPlanSubQuestions:
         sub_text = " ".join(plan.sub_questions).lower()
         assert "resistance" not in sub_text or len(plan.sub_questions) == 0
 
+    @pytest.mark.parametrize(
+        "question,expected_keyword",
+        [
+            ("How does CD19 CAR-T mechanism work?", "mechanism"),
+            ("What biomarkers predict CAR-T response?", "biomarker"),
+            ("What are the CAR-T production challenges?", "manufacturing"),
+            ("What is the toxicity profile of BCMA CAR-T?", "toxicity"),
+            ("What are CAR-T cost and access barriers?", "pricing"),
+            ("What is the FDA approval pathway for CAR-T?", "approval"),
+        ],
+    )
+    def test_expanded_patterns_generate_sub_questions(
+        self, agent, question, expected_keyword
+    ):
+        """Expanded question patterns generate relevant sub-questions."""
+        plan = agent.search_plan(question)
+        assert len(plan.sub_questions) >= 2
+        sub_text = " ".join(plan.sub_questions).lower()
+        assert expected_keyword in sub_text
+
+    def test_mechanism_pattern_generates_three_sub_questions(self, agent):
+        """MECHANISM pattern generates sub-questions about mechanism, evidence, resistance."""
+        plan = agent.search_plan("How does CD19 CAR-T mechanism of action work?")
+        assert len(plan.sub_questions) == 3
+        sub_text = " ".join(plan.sub_questions).lower()
+        assert "molecular mechanism" in sub_text
+        assert "clinical evidence" in sub_text
+        assert "resistance" in sub_text
+
+    def test_safety_pattern_generates_four_sub_questions(self, agent):
+        """SAFETY pattern generates sub-questions about incidence, management, risk, biomarkers."""
+        plan = agent.search_plan("What is the safety profile of CAR-T toxicity?")
+        assert len(plan.sub_questions) == 4
+        sub_text = " ".join(plan.sub_questions).lower()
+        assert "incidence" in sub_text
+        assert "management" in sub_text
+        assert "risk factors" in sub_text
+
+    def test_regulatory_pattern(self, agent):
+        """REGULATORY / FDA patterns generate approval-related sub-questions."""
+        plan = agent.search_plan("What is the FDA regulatory pathway for CAR-T?")
+        assert len(plan.sub_questions) == 3
+        sub_text = " ".join(plan.sub_questions).lower()
+        assert "approval pathway" in sub_text or "regulatory" in sub_text
+        assert "precedent" in sub_text
+
+    def test_production_cmc_pattern(self, agent):
+        """PRODUCTION / CMC patterns generate manufacturing sub-questions."""
+        plan = agent.search_plan("What are the CMC requirements for CAR-T production?")
+        assert len(plan.sub_questions) == 3
+        sub_text = " ".join(plan.sub_questions).lower()
+        assert "process parameters" in sub_text or "manufacturing" in sub_text
+        assert "failure modes" in sub_text
+        assert "cost" in sub_text
+
+    def test_biomarker_predict_pattern(self, agent):
+        """PREDICT / BIOMARKER patterns generate biomarker sub-questions."""
+        plan = agent.search_plan("Can we predict CAR-T response with biomarkers?")
+        assert len(plan.sub_questions) == 3
+        sub_text = " ".join(plan.sub_questions).lower()
+        assert "biomarker" in sub_text
+        assert "cutoff" in sub_text
+        assert "validation" in sub_text
+
+    def test_cost_access_disparity_pattern(self, agent):
+        """COST / ACCESS / DISPARITY patterns generate equity sub-questions."""
+        plan = agent.search_plan("What are the health disparity issues with CAR-T access?")
+        assert len(plan.sub_questions) == 3
+        sub_text = " ".join(plan.sub_questions).lower()
+        assert "pricing" in sub_text
+        assert "access" in sub_text
+        assert "equity" in sub_text or "disparity" in sub_text
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # EVIDENCE EVALUATION
@@ -253,6 +326,22 @@ class TestEvaluateEvidence:
         """Zero hits means 'insufficient' evidence."""
         evidence = CrossCollectionResult(query="test", hits=[])
         assert agent.evaluate_evidence(evidence) == "insufficient"
+
+    def test_run_passes_stages_to_retrieve(self, agent, mock_rag_engine):
+        """run() passes the search plan's relevant_stages to rag.retrieve()."""
+        # Ensure llm.generate returns a string so AgentResponse validates
+        mock_rag_engine.llm.generate.return_value = "Mock LLM answer"
+        mock_rag_engine._build_prompt.return_value = "Mock prompt"
+        agent.run("What clinical trial results exist for CD19 CAR-T?")
+        # Verify retrieve was called with stages keyword argument
+        call_kwargs = mock_rag_engine.retrieve.call_args
+        assert "stages" in call_kwargs.kwargs or (
+            len(call_kwargs.args) > 1  # positional fallback
+        )
+        # The stages should include CLINICAL since the question mentions "trial"
+        stages_arg = call_kwargs.kwargs.get("stages", None)
+        assert stages_arg is not None
+        assert CARTStage.CLINICAL in stages_arg
 
     def test_insufficient_evidence_few_hits(self, agent):
         """Very few hits from one collection is 'insufficient'."""

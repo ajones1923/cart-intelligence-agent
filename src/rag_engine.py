@@ -19,6 +19,7 @@ from config.settings import settings
 
 from .models import (
     AgentQuery,
+    CARTStage,
     CrossCollectionResult,
     SearchHit,
 )
@@ -87,6 +88,18 @@ COLLECTION_CONFIG = {
     "genomic_evidence":   {"weight": settings.WEIGHT_GENOMIC,       "label": "Genomic",        "has_target_antigen": False, "year_field": None},
 }
 
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE → COLLECTION BOOST MAPPING
+# ═══════════════════════════════════════════════════════════════════════
+
+STAGE_COLLECTION_BOOST: Dict[CARTStage, List[str]] = {
+    CARTStage.CLINICAL: ["cart_trials", "cart_safety", "cart_realworld"],
+    CARTStage.CAR_DESIGN: ["cart_constructs", "cart_sequences"],
+    CARTStage.VECTOR_ENG: ["cart_manufacturing"],
+    CARTStage.TESTING: ["cart_assays", "cart_biomarkers"],
+    CARTStage.TARGET_ID: ["cart_literature", "cart_biomarkers"],
+}
+
 # Known target antigens — derived from knowledge graph (single source of truth)
 from .knowledge import CART_TARGETS
 
@@ -121,12 +134,49 @@ class CARTRAGEngine:
         self.knowledge = knowledge
         self.expander = query_expander
 
+    def _compute_boosted_weights(self, stages: List[CARTStage]) -> Dict[str, float]:
+        """Compute adjusted collection weights based on relevant CAR-T stages.
+
+        Collections associated with the given stages receive a 1.5x weight
+        boost. All weights are then renormalized to sum to 1.0.
+
+        Args:
+            stages: List of CARTStage values identified by the search plan.
+
+        Returns:
+            Dict mapping collection name to adjusted weight (summing to ~1.0).
+        """
+        # Start with base weights from COLLECTION_CONFIG
+        weights = {
+            name: cfg["weight"]
+            for name, cfg in COLLECTION_CONFIG.items()
+        }
+
+        # Determine which collections to boost
+        boosted_collections: set = set()
+        for stage in stages:
+            for coll in STAGE_COLLECTION_BOOST.get(stage, []):
+                boosted_collections.add(coll)
+
+        # Apply 1.5x boost
+        for coll in boosted_collections:
+            if coll in weights:
+                weights[coll] *= 1.5
+
+        # Renormalize to sum to 1.0
+        total = sum(weights.values())
+        if total > 0:
+            weights = {name: w / total for name, w in weights.items()}
+
+        return weights
+
     def retrieve(self, query: AgentQuery,
                  top_k_per_collection: int = None,
                  collections_filter: List[str] = None,
                  year_min: int = None,
                  year_max: int = None,
-                 conversation_context: str = None) -> CrossCollectionResult:
+                 conversation_context: str = None,
+                 stages: List[CARTStage] = None) -> CrossCollectionResult:
         """Retrieve evidence from collections for a query.
 
         Args:
@@ -136,6 +186,7 @@ class CARTRAGEngine:
             year_min: Optional minimum year filter
             year_max: Optional maximum year filter
             conversation_context: Optional prior conversation context for follow-ups
+            stages: Optional list of CARTStage values for dynamic weight boosting
         """
         top_k = top_k_per_collection or settings.TOP_K_PER_COLLECTION
         start = time.time()
@@ -172,9 +223,15 @@ class CARTRAGEngine:
             if parts:
                 filter_exprs[coll] = " and ".join(parts)
 
+        # Step 3b: Compute boosted weights if stages provided
+        boosted_weights = None
+        if stages:
+            boosted_weights = self._compute_boosted_weights(stages)
+
         # Step 4: Parallel search across all collections
         all_hits = self._search_all_collections(
             query_embedding, collections_to_search, top_k, filter_exprs,
+            weight_overrides=boosted_weights,
         )
 
         # Step 5: Query expansion (semantic search, not field-filter)
@@ -280,6 +337,7 @@ class CARTRAGEngine:
     def _search_all_collections(
         self, query_embedding, collections: List[str],
         top_k: int, filter_exprs: Dict[str, str],
+        weight_overrides: Dict[str, float] = None,
     ) -> List[SearchHit]:
         """Search all collections in parallel via ThreadPoolExecutor."""
         all_hits = []
@@ -296,7 +354,10 @@ class CARTRAGEngine:
             if coll_name not in [c for c in collections]:
                 continue
             cfg = COLLECTION_CONFIG.get(coll_name, {})
-            weight = cfg.get("weight", 0.1)
+            if weight_overrides and coll_name in weight_overrides:
+                weight = weight_overrides[coll_name]
+            else:
+                weight = cfg.get("weight", 0.1)
             label = cfg.get("label", coll_name)
 
             for r in results:

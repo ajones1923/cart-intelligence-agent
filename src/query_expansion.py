@@ -72,8 +72,9 @@ TARGET_ANTIGEN_EXPANSION: Dict[str, List[str]] = {
         "gemtuzumab ozogamicin", "Mylotarg",
     ],
     "cd123": [
-        "CD123", "IL-3R-alpha", "IL3RA",
-        "AML", "BPDCN", "blastic plasmacytoid dendritic cell neoplasm",
+        "CD123", "IL-3R-alpha", "IL3RA", "IL-3 receptor alpha", "interleukin-3 receptor",
+        "AML", "AML target", "BPDCN", "blastic plasmacytoid dendritic cell neoplasm",
+        "blastic plasmacytoid dendritic cell",
         "tagraxofusp", "Elzonris",
     ],
     "flt3": [
@@ -86,8 +87,8 @@ TARGET_ANTIGEN_EXPANSION: Dict[str, List[str]] = {
         "CLL1/CD33 bispecific",
     ],
     "cll1": [
-        "CLL-1", "CLL1", "CLEC12A", "CD371", "myeloid CLL-1",
-        "AML CLL-1 CAR-T", "leukemic stem cell marker",
+        "CLL-1", "CLL1", "CLEC12A", "CD371", "C-type lectin", "myeloid CLL-1",
+        "AML CLL-1 CAR-T", "leukemic stem cell marker", "AML LSC target",
     ],
 
     # --- T-cell malignancies ---
@@ -127,9 +128,10 @@ TARGET_ANTIGEN_EXPANSION: Dict[str, List[str]] = {
         "zolbetuximab", "tight junction",
     ],
     "gd2": [
-        "GD2", "disialoganglioside", "neuroblastoma",
+        "GD2", "disialoganglioside", "ganglioside", "neuroblastoma", "neuroblastoma target",
         "retinoblastoma", "osteosarcoma", "melanoma",
         "dinutuximab", "Unituxin", "14g2a",
+        "DIPG target", "DMG",
     ],
     "psma": [
         "PSMA", "prostate-specific membrane antigen", "FOLH1",
@@ -186,6 +188,33 @@ TARGET_ANTIGEN_EXPANSION: Dict[str, List[str]] = {
     "cd44v6": [
         "CD44v6", "CD44 variant 6", "CD44v6 CAR-T", "MLM-CAR44.1",
         "AML CD44v6", "pancreatic CD44v6",
+        "adhesion molecule", "hyaluronan receptor", "splice variant",
+    ],
+
+    # --- Additional targets (expanded) ---
+    "nkg2d": [
+        "NKG2D", "NKG2D ligand", "MICA", "MICB", "ULBP", "stress ligand",
+        "natural killer group 2D", "innate immune receptor",
+    ],
+    "lngfr": [
+        "LNGFR", "CD271", "p75NTR", "nerve growth factor receptor",
+        "cancer stem cell marker", "melanoma stem cell",
+    ],
+    "prame": [
+        "PRAME", "preferentially expressed antigen in melanoma",
+        "cancer testis antigen", "melanoma antigen",
+    ],
+    "wt1": [
+        "WT1", "Wilms tumor 1", "transcription factor",
+        "leukemia antigen", "solid tumor antigen",
+    ],
+    "gcc": [
+        "GCC", "guanylyl cyclase C", "GUCY2C",
+        "colorectal target", "intestinal receptor",
+    ],
+    "lilrb4": [
+        "LILRB4", "ILT3", "leukocyte immunoglobulin-like receptor",
+        "monocytic AML target",
     ],
 }
 
@@ -289,6 +318,35 @@ DISEASE_EXPANSION: Dict[str, List[str]] = {
     "ovarian cancer": [
         "ovarian cancer", "mesothelin", "MUC16",
         "HER2", "folate receptor alpha", "FRa",
+    ],
+
+    # --- Additional disease expansions ---
+    "bpdcn": [
+        "BPDCN", "blastic plasmacytoid dendritic cell neoplasm",
+        "CD123 positive neoplasm",
+    ],
+    "mds": [
+        "MDS", "myelodysplastic syndrome", "myelodysplasia",
+        "pre-leukemia", "refractory anemia",
+    ],
+    "dipg": [
+        "DIPG", "diffuse intrinsic pontine glioma", "DMG",
+        "diffuse midline glioma", "H3K27M mutant",
+        "pediatric brainstem glioma",
+    ],
+    "autoimmune_cart": [
+        "autoimmune CAR-T", "CAR-T for lupus", "CAR-T for myasthenia gravis",
+        "CAR-T for scleroderma", "B-cell depletion autoimmune",
+        "anti-CD19 autoimmune",
+    ],
+    "t_cell_malignancy": [
+        "T-ALL", "T-cell ALL", "T-cell lymphoma", "PTCL", "AITL", "ATLL",
+        "Sézary syndrome", "mycosis fungoides", "CD7 positive lymphoma",
+    ],
+    "cns_lymphoma": [
+        "CNS lymphoma", "primary CNS lymphoma", "PCNSL",
+        "secondary CNS lymphoma", "leptomeningeal lymphoma",
+        "intrathecal CAR-T",
     ],
 }
 
@@ -429,6 +487,31 @@ TOXICITY_EXPANSION: Dict[str, List[str]] = {
         "secondary malignancy", "T-cell lymphoma", "insertional mutagenesis",
         "insertional oncogenesis", "clonal expansion", "FDA boxed warning",
         "long-term follow-up", "integration site analysis",
+    ],
+
+    # --- Additional toxicity expansions ---
+    "immune_reconstitution": [
+        "immune reconstitution", "immunodeficiency", "hypogammaglobulinemia",
+        "IVIG replacement", "vaccination post CAR-T", "immune recovery",
+        "IgG levels",
+    ],
+    "infection_post_cart": [
+        "infection", "opportunistic infection", "PJP prophylaxis",
+        "CMV reactivation", "EBV reactivation", "fungal infection",
+        "bacterial sepsis post CAR-T", "COVID CAR-T",
+    ],
+    "hepatotoxicity": [
+        "hepatotoxicity", "liver injury", "AST ALT elevation",
+        "hepatic toxicity", "liver failure CAR-T", "transaminitis",
+    ],
+    "macrophage_activation": [
+        "macrophage activation syndrome", "MAS",
+        "hemophagocytic lymphohistiocytosis", "HLH MAS overlap",
+        "ferritin spike", "secondary HLH", "hyperferritinemia",
+    ],
+    "dermatologic": [
+        "skin toxicity", "rash", "nail toxicity", "dermatologic adverse event",
+        "GPRC5D skin", "alopecia", "Stevens-Johnson", "skin GVHD",
     ],
 }
 
@@ -600,8 +683,43 @@ MANUFACTURING_EXPANSION: Dict[str, List[str]] = {
     # --- Automated manufacturing ---
     "automated manufacturing": [
         "CliniMACS Prodigy", "automated manufacturing", "closed-system",
-        "Cocoon platform", "Sepax", "decentralized manufacturing",
-        "point-of-care automated",
+        "Cocoon platform", "Lonza Cocoon", "Miltenyi Prodigy", "Sepax",
+        "decentralized manufacturing", "point-of-care manufacturing",
+        "bedside manufacturing", "closed system", "point-of-care automated",
+    ],
+
+    # --- Additional manufacturing expansions ---
+    "vector_production": [
+        "viral vector", "lentiviral vector", "retroviral vector",
+        "vector titer", "GMP vector", "vector manufacturing",
+        "TU/mL", "transduction unit", "vector copy number", "VCN",
+        "RCL testing",
+    ],
+    "quality_control": [
+        "quality control", "release testing", "CAR expression",
+        "potency assay", "sterility test", "mycoplasma", "endotoxin",
+        "USP 71", "BacT/ALERT", "rapid sterility",
+    ],
+    "supply_chain": [
+        "supply chain", "cold chain", "cryoshipper",
+        "chain of identity", "chain of custody",
+        "vein to vein logistics", "thaw to infuse",
+        "scheduling coordination",
+    ],
+    "cost_economics": [
+        "manufacturing cost", "COGS", "cost per dose",
+        "reimbursement", "value-based pricing",
+        "outcomes-based contract", "indication-based pricing",
+    ],
+    "ipsc_manufacturing": [
+        "iPSC derived", "induced pluripotent stem cell",
+        "off-the-shelf CAR-T", "master cell bank", "FT819",
+        "universal donor", "iPSC differentiation",
+    ],
+    "activation_media": [
+        "T-cell activation", "IL-7 IL-15", "IL-2 expansion",
+        "TexMACS", "OpTmizer", "X-VIVO",
+        "anti-CD3 CD28", "TransAct", "Dynabeads",
     ],
 }
 
@@ -922,6 +1040,32 @@ CONSTRUCT_EXPANSION: Dict[str, List[str]] = {
         "SpyCatcher/SpyTag", "universal adapter",
         "dose-titratable", "modular targeting",
     ],
+
+    # --- Additional construct expansions ---
+    "fratricide_resistant": [
+        "fratricide resistant", "CD7 knockout", "CD5 knockout",
+        "T-cell antigen targeting", "self-antigen CAR",
+        "gene editing fratricide",
+    ],
+    "multi_antigen": [
+        "multi-antigen", "sequential targeting", "combinatorial antigen",
+        "AND gate", "OR gate", "Boolean logic CAR", "multi-specific",
+    ],
+    "car_nk": [
+        "CAR-NK", "natural killer cell", "NK cell therapy",
+        "off-the-shelf NK", "cord blood NK", "iPSC-NK",
+        "FT596", "NK-92",
+    ],
+    "tcr_therapy": [
+        "TCR therapy", "TCR-T", "T-cell receptor",
+        "NY-ESO-1", "MAGE-A4", "TCR-redirected",
+        "peptide-MHC", "engineered TCR",
+    ],
+    "next_gen_costim": [
+        "next generation costimulation", "CD28 4-1BB hybrid",
+        "ICOS", "OX40", "CD27", "MyD88/CD40",
+        "toll-like receptor signaling",
+    ],
 }
 
 
@@ -994,9 +1138,13 @@ BIOMARKER_EXPANSION: Dict[str, List[str]] = {
         "MRD", "minimal residual disease", "flow cytometry MRD",
         "PCR MRD", "measurable residual disease", "MRD negative",
         "deep response", "molecular remission",
+        "flow MRD", "NGS MRD",
+        "10^-4 sensitivity", "10^-5 sensitivity", "10^-6 sensitivity",
     ],
     "car expansion": [
-        "CAR-T expansion", "peak expansion", "Cmax", "transgene copies",
+        "CAR-T expansion", "CAR expansion", "peak expansion", "Cmax", "Tmax", "AUC",
+        "transgene copies", "persistence",
+        "CAR copies per microgram DNA", "expansion kinetics",
         "qPCR", "in vivo proliferation", "pharmacokinetics",
     ],
     "exhaustion marker": [
@@ -1011,6 +1159,7 @@ BIOMARKER_EXPANSION: Dict[str, List[str]] = {
     "ctdna": [
         "ctDNA", "circulating tumor DNA", "liquid biopsy",
         "cell-free DNA", "molecular response", "genomic profiling",
+        "cfDNA dynamics",
     ],
     "sbcma": [
         "sBCMA", "soluble BCMA", "BCMA shedding",
@@ -1060,6 +1209,23 @@ BIOMARKER_EXPANSION: Dict[str, List[str]] = {
         "troponin", "hs-cTnI", "hs-cTnT", "cardiac troponin",
         "myocardial injury marker", "cardiac biomarker",
     ],
+
+    # --- Additional biomarker expansions ---
+    "t_cell_phenotype": [
+        "T-cell phenotype", "central memory", "Tcm",
+        "stem cell memory", "Tscm", "effector memory", "Tem",
+        "terminally differentiated", "Ttd", "naive T-cell", "Tn",
+    ],
+    "cytokine_profile": [
+        "cytokine profile", "cytokine storm", "IL-6 level",
+        "IFN-gamma", "IL-1 beta", "TNF-alpha", "IL-10",
+        "IL-2 receptor", "cytokine kinetics",
+    ],
+    "ang2_ang1": [
+        "angiopoietin", "Ang-2", "Ang-1", "Ang-2/Ang-1 ratio",
+        "endothelial activation", "ICANS biomarker",
+        "vascular permeability",
+    ],
 }
 
 
@@ -1091,6 +1257,8 @@ REGULATORY_EXPANSION: Dict[str, List[str]] = {
     "ema": [
         "EMA", "European Medicines Agency", "CHMP",
         "marketing authorization", "conditional approval", "EU approval",
+        "conditional marketing authorization", "PRIME designation",
+        "ATMP classification", "advanced therapy",
     ],
     "label update": [
         "label update", "prescribing information", "boxed warning",
@@ -1099,6 +1267,31 @@ REGULATORY_EXPANSION: Dict[str, List[str]] = {
     "post-marketing": [
         "post-marketing", "Phase 4", "post-approval",
         "registry study", "long-term follow-up", "PMR", "PMC",
+    ],
+
+    # --- Additional regulatory expansions ---
+    "pmda": [
+        "PMDA", "Japan regulatory", "Japanese approval",
+        "Pharmaceuticals and Medical Devices Agency",
+    ],
+    "health_canada": [
+        "Health Canada", "Canadian approval", "NOC",
+        "Notice of Compliance",
+    ],
+    "ema_specifics": [
+        "EMA", "European Medicines Agency", "CHMP",
+        "conditional marketing authorization", "PRIME designation",
+        "ATMP classification", "advanced therapy",
+    ],
+    "secondary_malignancy_regulatory": [
+        "secondary malignancy", "T-cell lymphoma", "boxed warning",
+        "FDA black box", "class-wide label", "REMS update",
+        "15-year follow-up", "insertional mutagenesis",
+    ],
+    "real_world_regulatory": [
+        "real world evidence regulatory", "post-marketing surveillance",
+        "PASS", "PAES", "registry mandate",
+        "long-term follow-up study", "15-year LTFU",
     ],
 }
 
@@ -1178,7 +1371,10 @@ REALWORLD_EXPANSION: Dict[str, List[str]] = {
         "pre-CAR-T", "disease control", "tumor debulking",
     ],
     "disparities": [
-        "disparities", "racial", "ethnic", "socioeconomic",
+        "disparities", "health disparities", "racial disparities", "ethnic disparities",
+        "racial", "ethnic", "socioeconomic",
+        "insurance barriers", "financial toxicity", "access equity",
+        "underrepresented populations",
         "access", "underserved", "minority", "equity",
     ],
     "resource utilization": [
@@ -1188,6 +1384,22 @@ REALWORLD_EXPANSION: Dict[str, List[str]] = {
     "long-term follow-up": [
         "long-term follow-up", "durability", "late relapse",
         "5-year", "3-year", "sustained remission", "cure",
+    ],
+
+    # --- Additional real-world expansions ---
+    "outpatient": [
+        "outpatient CAR-T", "ambulatory", "home monitoring",
+        "remote monitoring", "telehealth post CAR-T", "early discharge",
+    ],
+    "cost_rwe": [
+        "total cost of care", "hospital cost", "ICU cost",
+        "readmission cost", "QALY", "cost-effectiveness",
+        "ICER", "budget impact", "payer perspective",
+    ],
+    "caregiver": [
+        "caregiver", "caregiver burden", "quality of life",
+        "patient-reported outcomes", "PRO", "FACT-Lym",
+        "EQ-5D", "long-term survivorship",
     ],
 }
 

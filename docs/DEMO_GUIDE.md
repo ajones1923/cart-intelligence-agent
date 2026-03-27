@@ -1,7 +1,7 @@
 # CAR-T Intelligence Agent -- Demo Guide
 
 **Author:** Adam Jones
-**Date:** February 2026
+**Date:** March 2026
 **Version:** 2.0.0
 **License:** Apache 2.0
 
@@ -32,12 +32,12 @@
 
 ### What This Demo Shows
 
-The CAR-T Intelligence Agent is a cross-functional AI system that searches **3,567,436 vectors across 11 specialized data collections** to answer questions about CAR-T cell therapy development. It spans the entire lifecycle from patient genomics and target identification through manufacturing, clinical trials, post-market safety, and real-world outcomes.
+The CAR-T Intelligence Agent is a cross-functional AI system that searches **3,567,622 vectors across 11 specialized data collections** to answer questions about CAR-T cell therapy development. It spans the entire lifecycle from patient genomics and target identification through manufacturing, clinical trials, post-market safety, and real-world outcomes.
 
 This is not a generic chatbot. It is a domain-specific intelligence platform that:
 
 - Searches 11 Milvus collections **in parallel** with a single query
-- Augments responses with a **structured knowledge graph** (25 target antigens, 8 toxicity profiles, 10 manufacturing processes, 15 biomarkers, 6 regulatory products, 6 immunogenicity topics)
+- Augments responses with a **structured knowledge graph** (34 target antigens, 17 toxicity profiles, 20 manufacturing processes, 23 biomarkers, 6 regulatory products, 6 immunogenicity topics)
 - Produces **clickable PubMed and ClinicalTrials.gov citations**
 - Auto-detects comparative queries and generates **structured side-by-side analysis**
 - Bridges to **3.5 million genomic variants** from the HCLS AI Factory genomics pipeline
@@ -116,16 +116,16 @@ Open the browser to `http://localhost:8521`. The sidebar should show all 11 coll
 |---|---|
 | Literature | 5,047 |
 | Clinical Trials | 973 |
-| CAR Constructs | 6 |
-| Assay Data | 45 |
-| Manufacturing | 30 |
-| Safety | 40 |
-| Biomarkers | 43 |
-| Regulatory | 25 |
-| Sequences | 27 |
-| Real-World Evidence | 30 |
+| CAR Constructs | 41 |
+| Assay Data | 75 |
+| Manufacturing | 56 |
+| Safety | 71 |
+| Biomarkers | 60 |
+| Regulatory | 40 |
+| Sequences | 40 |
+| Real-World Evidence | 54 |
 | Genomic Evidence | 3,561,170 |
-| **Total** | **3,567,436** |
+| **Total** | **3,567,622** |
 
 If any collection shows 0, run the appropriate seed script from the `scripts/` directory.
 
@@ -158,7 +158,7 @@ The first query takes a few seconds longer because the BGE-small-en-v1.5 model n
 
 Point to the sidebar. Read the total aloud:
 
-> "This system has indexed **3,567,436 vectors** across **11 specialized collections**. That includes over 5,000 published research papers, nearly 1,000 clinical trials, safety reports, biomarker data, manufacturing records, molecular sequences, real-world registry outcomes, and -- here is the bridge to precision medicine -- **3.5 million genomic variants** from actual patient sequencing data processed through our Parabricks genomics pipeline."
+> "This system has indexed **3,567,622 vectors** across **11 specialized collections**. That includes over 5,000 published research papers, nearly 1,000 clinical trials, safety reports, biomarker data, manufacturing records, molecular sequences, real-world registry outcomes, and -- here is the bridge to precision medicine -- **3.5 million genomic variants** from actual patient sequencing data processed through our Parabricks genomics pipeline."
 
 ### Show the Collection List
 
@@ -256,7 +256,7 @@ Watch for the status message that says: "Comparative analysis: **4-1BB (CD137)**
 
 ### Talking Points
 
-- **Entity resolution:** "The system resolves 'Kymriah' to CD19, '4-1BB' to a costimulatory domain, 'BCMA' to a target antigen. It understands the CAR-T taxonomy because of the knowledge graph with 25 antigens, 6 products, and 18 aliases."
+- **Entity resolution:** "The system resolves 'Kymriah' to CD19, '4-1BB' to a costimulatory domain, 'BCMA' to a target antigen. It understands the CAR-T taxonomy because of the knowledge graph with 34 antigens, 6 products, and 54 aliases."
 
 - **Other comparisons you can try:**
   - "Kymriah versus Yescarta" (product-level comparison, resolves to CD19 with different constructs)
@@ -553,7 +553,7 @@ Expected output:
 {
     "status": "healthy",
     "collections": 11,
-    "total_vectors": 3567436
+    "total_vectors": 3567622
 }
 ```
 
@@ -622,12 +622,13 @@ curl -s http://localhost:8522/knowledge/stats | python3 -m json.tool
 Expected output:
 ```json
 {
-    "target_antigens": 25,
+    "target_antigens": 34,
     "targets_with_approved_products": 2,
-    "toxicity_profiles": 8,
-    "manufacturing_processes": 10,
-    "biomarkers": 15,
-    "regulatory_products": 6
+    "toxicity_profiles": 17,
+    "manufacturing_processes": 20,
+    "biomarkers": 23,
+    "regulatory_products": 6,
+    "immunogenicity_topics": 6
 }
 ```
 
@@ -814,20 +815,20 @@ Print this page and keep it at the podium during the demo.
 | FastAPI Docs | `http://localhost:8522/docs` | Interactive API documentation |
 | Milvus | `localhost:19530` | Vector database |
 
-### Collections (11 total, 3,567,436 vectors)
+### Collections (11 total, 3,567,622 vectors)
 
 | Collection | Vectors | Badge Color |
 |---|---|---|
 | cart_literature | 5,047 | Blue |
 | cart_trials | 973 | Green |
-| cart_constructs | 6 | Purple |
-| cart_assays | 45 | Yellow |
-| cart_manufacturing | 30 | Orange |
-| cart_safety | 40 | Red |
-| cart_biomarkers | 43 | Teal |
-| cart_regulatory | 25 | Indigo |
-| cart_sequences | 27 | Pink |
-| cart_realworld | 30 | Brown |
+| cart_constructs | 41 | Purple |
+| cart_assays | 75 | Yellow |
+| cart_manufacturing | 56 | Orange |
+| cart_safety | 71 | Red |
+| cart_biomarkers | 60 | Teal |
+| cart_regulatory | 40 | Indigo |
+| cart_sequences | 40 | Pink |
+| cart_realworld | 54 | Brown |
 | genomic_evidence | 3,561,170 | Teal |
 
 ### Demo Queries -- In Order
@@ -895,15 +896,15 @@ curl http://localhost:8522/metrics
 
 | Metric | Value |
 |---|---|
-| Total vectors | **3,567,436** |
+| Total vectors | **3,567,622** |
 | Collections | **11** |
-| Knowledge graph targets | **25** antigens |
+| Knowledge graph targets | **34** antigens |
 | FDA-approved products | **6** (Kymriah, Yescarta, Tecartus, Breyanzi, Abecma, Carvykti) |
-| Toxicity profiles | **8** |
-| Manufacturing processes | **10** |
-| Biomarkers | **15** |
+| Toxicity profiles | **17** |
+| Manufacturing processes | **20** |
+| Biomarkers | **23** |
 | Immunogenicity topics | **6** |
-| Query expansion keywords | **111** mapping to **1,086+** terms |
+| Query expansion keywords | **229** mapping to **1,961** terms |
 | Retrieval latency | **20-30 ms** (11 collections in parallel) |
 | Full RAG query time | **~24 seconds** (dominated by LLM) |
 | Embedding model | BGE-small-en-v1.5 (384-dim) |
@@ -933,4 +934,4 @@ curl http://localhost:8522/metrics
 
 ---
 
-*Generated by HCLS AI Factory -- CAR-T Intelligence Agent v2.0.0 | Apache 2.0 | Adam Jones | February 2026*
+*Generated by HCLS AI Factory -- CAR-T Intelligence Agent v2.0.0 | Apache 2.0 | Adam Jones | March 2026*

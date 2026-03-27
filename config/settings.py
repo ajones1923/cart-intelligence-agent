@@ -3,6 +3,7 @@
 Follows the same Pydantic BaseSettings pattern as rag-chat-pipeline/config/settings.py.
 """
 
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -20,7 +21,7 @@ class CARTSettings(BaseSettings):
 
     # ── RAG Pipeline (reuse existing) ──
     RAG_PIPELINE_ROOT: Path = Path(
-        "/home/adam/projects/hcls-ai-factory/rag-chat-pipeline"
+        os.environ.get("CART_RAG_PIPELINE_ROOT", "/app/rag-chat-pipeline")
     )
 
     # ── Milvus ──
@@ -47,7 +48,7 @@ class CARTSettings(BaseSettings):
 
     # ── LLM ──
     LLM_PROVIDER: str = "anthropic"
-    LLM_MODEL: str = "claude-sonnet-4-20250514"
+    LLM_MODEL: str = "claude-sonnet-4-6"
     ANTHROPIC_API_KEY: Optional[str] = None
 
     # ── RAG Search ──
@@ -77,6 +78,7 @@ class CARTSettings(BaseSettings):
     # ── API Server ──
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8522
+    API_KEY: str = ""
 
     # ── Streamlit ──
     STREAMLIT_PORT: int = 8521
@@ -94,6 +96,14 @@ class CARTSettings(BaseSettings):
     # ── Citation Scoring ──
     CITATION_HIGH_THRESHOLD: float = 0.75
     CITATION_MEDIUM_THRESHOLD: float = 0.60
+
+    # ── Cross-Agent Integration ──
+    ONCOLOGY_AGENT_URL: str = "http://localhost:8527"
+    BIOMARKER_AGENT_URL: str = "http://localhost:8529"
+    SINGLE_CELL_AGENT_URL: str = "http://localhost:8540"
+    CARDIOLOGY_AGENT_URL: str = "http://localhost:8126"
+    TRIAL_AGENT_URL: str = "http://localhost:8538"
+    CROSS_AGENT_TIMEOUT: int = 30
 
     # ── CORS ──
     CORS_ORIGINS: str = "http://localhost:8080,http://localhost:8521,http://localhost:8522"

@@ -10,8 +10,8 @@ Date: February 2026
 
 import pytest
 
-from src.models import AgentQuery, CrossCollectionResult, SearchHit
-from src.rag_engine import COLLECTION_CONFIG, CARTRAGEngine
+from src.models import AgentQuery, CARTStage, CrossCollectionResult, SearchHit
+from src.rag_engine import COLLECTION_CONFIG, STAGE_COLLECTION_BOOST, CARTRAGEngine
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -348,3 +348,80 @@ class TestCollectionConfig:
         for name, config in COLLECTION_CONFIG.items():
             assert isinstance(config["label"], str)
             assert len(config["label"]) > 0
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# DYNAMIC WEIGHT BOOSTING
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestComputeBoostedWeights:
+    """Tests for _compute_boosted_weights() dynamic weight adjustment."""
+
+    def test_clinical_stage_boosts_expected_collections(self, rag_engine):
+        """CLINICAL stage boosts cart_trials, cart_safety, cart_realworld."""
+        weights = rag_engine._compute_boosted_weights([CARTStage.CLINICAL])
+        base = {name: cfg["weight"] for name, cfg in COLLECTION_CONFIG.items()}
+        # Boosted collections should have higher relative weights
+        for coll in STAGE_COLLECTION_BOOST[CARTStage.CLINICAL]:
+            base_ratio = base[coll] / sum(base.values())
+            assert weights[coll] > base_ratio
+
+    def test_car_design_stage_boosts_constructs_and_sequences(self, rag_engine):
+        """CAR_DESIGN stage boosts cart_constructs and cart_sequences."""
+        weights = rag_engine._compute_boosted_weights([CARTStage.CAR_DESIGN])
+        base = {name: cfg["weight"] for name, cfg in COLLECTION_CONFIG.items()}
+        for coll in STAGE_COLLECTION_BOOST[CARTStage.CAR_DESIGN]:
+            base_ratio = base[coll] / sum(base.values())
+            assert weights[coll] > base_ratio
+
+    def test_weights_sum_to_one(self, rag_engine):
+        """Boosted weights always sum to approximately 1.0."""
+        weights = rag_engine._compute_boosted_weights([CARTStage.CLINICAL])
+        assert abs(sum(weights.values()) - 1.0) < 1e-9
+
+    def test_multiple_stages_sum_to_one(self, rag_engine):
+        """Weights still sum to ~1.0 when multiple stages are boosted."""
+        weights = rag_engine._compute_boosted_weights(
+            [CARTStage.CLINICAL, CARTStage.TESTING]
+        )
+        assert abs(sum(weights.values()) - 1.0) < 1e-9
+
+    def test_all_stages_sum_to_one(self, rag_engine):
+        """Weights sum to ~1.0 even when all stages are boosted."""
+        all_stages = list(CARTStage)
+        weights = rag_engine._compute_boosted_weights(all_stages)
+        assert abs(sum(weights.values()) - 1.0) < 1e-9
+
+    def test_empty_stages_returns_normalized_base(self, rag_engine):
+        """Empty stages list returns base weights normalized to 1.0."""
+        weights = rag_engine._compute_boosted_weights([])
+        assert abs(sum(weights.values()) - 1.0) < 1e-9
+        # Should be proportional to base weights
+        base = {name: cfg["weight"] for name, cfg in COLLECTION_CONFIG.items()}
+        total = sum(base.values())
+        for name in weights:
+            expected = base[name] / total
+            assert abs(weights[name] - expected) < 1e-9
+
+    def test_all_collections_present_in_output(self, rag_engine):
+        """Boosted weights contain entries for all collections in COLLECTION_CONFIG."""
+        weights = rag_engine._compute_boosted_weights([CARTStage.CLINICAL])
+        assert set(weights.keys()) == set(COLLECTION_CONFIG.keys())
+
+    def test_boost_factor_is_1_5x(self, rag_engine):
+        """Boosted collections get exactly 1.5x their base weight before normalization."""
+        stages = [CARTStage.VECTOR_ENG]  # boosts only cart_manufacturing
+        weights = rag_engine._compute_boosted_weights(stages)
+        # Verify by computing manually
+        base = {name: cfg["weight"] for name, cfg in COLLECTION_CONFIG.items()}
+        base["cart_manufacturing"] *= 1.5
+        total = sum(base.values())
+        expected = base["cart_manufacturing"] / total
+        assert abs(weights["cart_manufacturing"] - expected) < 1e-9
+
+    def test_retrieve_accepts_stages_parameter(self, rag_engine):
+        """retrieve() accepts an optional stages parameter without error."""
+        query = AgentQuery(question="CD19 clinical trials")
+        result = rag_engine.retrieve(query, stages=[CARTStage.CLINICAL])
+        assert isinstance(result, CrossCollectionResult)

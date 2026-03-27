@@ -23,7 +23,7 @@ from pathlib import Path
 
 # Load API key from rag-chat-pipeline .env if not already set
 if not os.environ.get("ANTHROPIC_API_KEY"):
-    env_path = Path("/home/adam/projects/hcls-ai-factory/rag-chat-pipeline/.env")
+    env_path = Path(os.environ.get("CART_RAG_PIPELINE_ROOT", "/app/rag-chat-pipeline")) / ".env"
     if env_path.exists():
         for line in env_path.read_text().splitlines():
             if line.startswith("ANTHROPIC_API_KEY="):

@@ -8,7 +8,7 @@
 
 # ── Core Framework ──
 pydantic>=2.0
-pydantic-settings>=2.0
+pydantic-settings>=2.7
 loguru>=0.7.0
 
 # ── Vector Database ──
@@ -36,6 +36,10 @@ apscheduler>=3.10.0
 
 # ── Monitoring ──
 prometheus-client>=0.20.0
+
+# ── Observability / Tracing ──
+opentelemetry-api>=1.29.0
+opentelemetry-sdk>=1.29.0
 
 # ── Export / Reporting ──
 reportlab>=4.0.0

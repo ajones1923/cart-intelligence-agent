@@ -3,9 +3,12 @@
 Extends the Clinker pattern from rag-chat-pipeline/src/knowledge.py,
 adapted for the CAR-T cell therapy domain. Contains:
 
-1. CART_TARGETS: ~33 target antigens with clinical data
-2. CART_TOXICITIES: ~12 toxicity profiles with grading/management
-3. CART_MANUFACTURING: ~15 manufacturing process parameters
+1. CART_TARGETS: 34 target antigens with clinical data
+2. CART_TOXICITIES: 17 toxicity profiles with grading/management
+3. CART_MANUFACTURING: 20 manufacturing process parameters
+4. CART_BIOMARKERS: 23 biomarker profiles
+5. CART_REGULATORY: 6 approved product regulatory records
+6. CART_IMMUNOGENICITY: 6 immunogenicity topic profiles
 
 Author: Adam Jones
 Date: February 2026
@@ -111,26 +114,56 @@ CART_TARGETS: Dict[str, Dict[str, Any]] = {
         "normal_tissue": "T-cells, NK cells, red blood cells (broad)",
     },
     "CD123": {
-        "protein": "Interleukin-3 receptor alpha chain (IL3RA)",
+        "protein": "CD123 (IL-3 receptor alpha chain, IL3RA)",
         "uniprot_id": "P26951",
-        "expression": "Myeloid progenitors, plasmacytoid DCs, AML blasts",
-        "diseases": ["AML", "BPDCN", "MDS"],
+        "expression": "Leukemic blasts, plasmacytoid dendritic cells, basophils; low on normal HSCs",
+        "diseases": ["AML", "BPDCN", "B-ALL (CD123+)", "Systemic mastocytosis", "Hairy cell leukemia"],
         "approved_products": [],
-        "key_trials": ["NCT02159495", "AMETHYST"],
-        "known_resistance": ["Low/variable expression"],
-        "toxicity_profile": {"CRS": "moderate-high", "myelosuppression": "significant"},
-        "normal_tissue": "Normal hematopoietic progenitors",
+        "key_trials": [
+            "NCT02159495 (CD123 CAR-T, City of Hope)",
+            "NCT04106076 (UCART123, Cellectis)",
+            "NCT03190278 (MB-102, Mustang Bio)",
+            "NCT04678336 (UniCAR-T-CD123)",
+        ],
+        "known_resistance": [
+            "CD123 downregulation under selective pressure",
+            "Myeloid lineage plasticity",
+            "HSC toxicity limiting dosing",
+            "TME immunosuppression in AML",
+        ],
+        "toxicity_profile": {
+            "CRS": "40-70%",
+            "myelosuppression": "60-90% (on-target HSC toxicity)",
+            "ICANS": "10-25%",
+            "prolonged_cytopenias": "50-80%",
+        },
+        "normal_tissue": "Expressed on normal HSCs at low levels — significant myelosuppression risk; may require bridge to transplant",
     },
     "GD2": {
-        "protein": "Disialoganglioside GD2",
+        "protein": "GD2 (disialoganglioside)",
         "uniprot_id": None,
-        "expression": "Neuroectodermal tumors, limited normal tissue",
-        "diseases": ["Neuroblastoma", "Osteosarcoma", "Melanoma", "DIPG"],
+        "expression": "Neuroblastoma, melanoma, retinoblastoma; CNS neurons, peripheral nerves",
+        "diseases": ["Neuroblastoma", "Melanoma", "Retinoblastoma", "DIPG/DMG", "Osteosarcoma", "Small cell lung cancer"],
         "approved_products": [],
-        "key_trials": ["NCT01953900", "NCT03635632"],
-        "known_resistance": ["GD2 downregulation", "immunosuppressive TME"],
-        "toxicity_profile": {"CRS": "moderate", "neurotoxicity": "pain-related"},
-        "normal_tissue": "Peripheral nerves, brain (low levels)",
+        "key_trials": [
+            "NCT03635632 (GD2 CAR-T, Baylor)",
+            "NCT04099797 (GD2-APRIL CAR-T)",
+            "NCT04196413 (C7R-GD2 CAR-T armored)",
+            "NCT05298995 (GD2 CAR-T DIPG, Stanford)",
+        ],
+        "known_resistance": [
+            "GD2 shedding by tumor cells",
+            "TME immunosuppression (TGF-beta, IL-10)",
+            "Poor T-cell infiltration in solid tumors",
+            "Neuropathic pain from on-target off-tumor",
+        ],
+        "toxicity_profile": {
+            "pain_syndrome": "30-60% (neuropathic)",
+            "CRS": "20-50%",
+            "ICANS": "5-15%",
+            "GvHD": "if allogeneic",
+        },
+        "normal_tissue": "Expressed on CNS neurons and peripheral nerves — neuropathic pain is dose-limiting; careful dose escalation required",
     },
     "HER2": {
         "protein": "Human Epidermal Growth Factor Receptor 2 (ERBB2)",
@@ -188,15 +221,24 @@ CART_TARGETS: Dict[str, Dict[str, Any]] = {
         "normal_tissue": "Pleura, peritoneum, pericardium",
     },
     "Claudin18.2": {
-        "protein": "Claudin 18 isoform 2 (CLDN18.2)",
+        "protein": "Claudin 18.2 (CLDN18.2, tight junction protein)",
         "uniprot_id": "P56856",
-        "expression": "Gastric mucosa, overexpressed in gastric/pancreatic cancer",
-        "diseases": ["Gastric Cancer", "Pancreatic Cancer"],
+        "expression": "Gastric mucosa (normal), overexpressed in gastric, pancreatic, esophageal cancers",
+        "diseases": ["Gastric/GEJ adenocarcinoma", "Pancreatic ductal adenocarcinoma", "Esophageal cancer", "Mucinous ovarian cancer"],
         "approved_products": [],
-        "key_trials": ["NCT03874897", "CT041"],
-        "known_resistance": ["Heterogeneous expression"],
-        "toxicity_profile": {"CRS": "moderate", "GI_toxicity": "mucosal"},
-        "normal_tissue": "Gastric epithelium (tight junctions)",
+        "key_trials": [
+            "NCT03874897 (CT041, CARsgen)",
+            "NCT04404595 (Claudin18.2 CAR-T, Nanjing Legend)",
+            "NCT05393986 (CLDN18.2 CAR-T, Innovent)",
+        ],
+        "known_resistance": [
+            "Claudin18.2 expression heterogeneity",
+            "Desmoplastic stroma limiting T-cell access",
+            "TGF-beta-rich TME",
+            "Tight junction shielding of epitope",
+        ],
+        "toxicity_profile": {"CRS": "40-70%", "GI_toxicity": "15-30%", "mucositis": "10-25%", "ICANS": "5-10%"},
+        "normal_tissue": "Normal gastric mucosa expression — GI toxicity expected but generally manageable; expression becomes accessible only in malignant transformation (tight junction disruption)",
     },
     "MUC1": {
         "protein": "Mucin 1 (episialin)",
@@ -232,15 +274,29 @@ CART_TARGETS: Dict[str, Dict[str, Any]] = {
         "normal_tissue": "Minimal in adults (oncofetal antigen)",
     },
     "GPRC5D": {
-        "protein": "G Protein-Coupled Receptor Class C Group 5 Member D",
+        "protein": "GPRC5D (G protein-coupled receptor class C group 5 member D)",
         "uniprot_id": "Q9NZD1",
-        "expression": "Plasma cells, hair follicles",
-        "diseases": ["Multiple Myeloma"],
-        "approved_products": [],
-        "key_trials": ["NCT05016778"],
-        "known_resistance": ["Limited data"],
-        "toxicity_profile": {"CRS": "moderate", "skin_toxicity": "alopecia/nail changes"},
-        "normal_tissue": "Hair follicle keratinocytes",
+        "expression": "Myeloma cells, hair follicles; limited normal tissue",
+        "diseases": ["Multiple myeloma (including BCMA-refractory)", "Light chain amyloidosis"],
+        "approved_products": ["Talquetamab (bispecific mAb, not CAR-T)"],
+        "key_trials": [
+            "NCT04555551 (GPRC5D CAR-T, MSKCC)",
+            "NCT05016778 (OriCAR-017)",
+            "NCT05739188 (GPRC5D CAR-T, BMS)",
+        ],
+        "known_resistance": [
+            "GPRC5D downregulation (less common than BCMA)",
+            "Dual antigen loss (BCMA+GPRC5D)",
+            "Immune evasion via PD-L1",
+        ],
+        "toxicity_profile": {
+            "CRS": "60-80%",
+            "ICANS": "10-20%",
+            "nail_toxicity": "40-60%",
+            "skin_toxicity": "30-50%",
+            "dysgeusia": "40-70%",
+        },
+        "normal_tissue": "Hair follicle expression causes reversible nail/skin toxicity and taste changes; manageable and dose-dependent",
     },
     "IL13Ra2": {
         "protein": "Interleukin-13 Receptor Alpha 2",
@@ -254,37 +310,63 @@ CART_TARGETS: Dict[str, Dict[str, Any]] = {
         "normal_tissue": "Testis, minimal elsewhere",
     },
     "DLL3": {
-        "protein": "Delta-Like Ligand 3",
+        "protein": "DLL3 (Delta-like ligand 3, Notch pathway)",
         "uniprot_id": "Q9NYJ7",
-        "expression": "Small cell lung cancer, neuroendocrine tumors",
-        "diseases": ["SCLC", "Neuroendocrine tumors"],
-        "approved_products": [],
-        "key_trials": ["NCT05680922"],
-        "known_resistance": ["Limited data"],
-        "toxicity_profile": {"CRS": "moderate"},
-        "normal_tissue": "Limited expression in adult tissue",
+        "expression": "SCLC (>80% of tumors), large cell neuroendocrine carcinoma; minimal normal tissue",
+        "diseases": ["SCLC", "Large cell neuroendocrine carcinoma", "High-grade neuroendocrine tumors", "Neuroendocrine prostate cancer"],
+        "approved_products": ["Tarlatamab (bispecific, not CAR-T)"],
+        "key_trials": [
+            "NCT05680922 (DLL3 CAR-T, BMS)",
+            "NCT05471609 (DLL3 x CD3 bispecific)",
+            "NCT05680922 (DLL3 armored CAR-T)",
+        ],
+        "known_resistance": [
+            "DLL3 internalization reducing surface density",
+            "Neuroendocrine-to-mesenchymal transition",
+            "Rapid disease progression outpacing manufacturing",
+        ],
+        "toxicity_profile": {"CRS": "30-55%", "ICANS": "5-15%", "fatigue": "40-60%"},
+        "normal_tissue": "Minimal normal tissue expression (intracellular in Notch pathway) — favorable safety profile expected",
     },
     "B7-H3": {
-        "protein": "CD276",
+        "protein": "B7-H3 (CD276, immune checkpoint molecule)",
         "uniprot_id": "Q5ZPR3",
-        "expression": "Broad solid tumor expression, limited normal tissue",
-        "diseases": ["Neuroblastoma", "Sarcoma", "Pediatric Brain Tumors"],
+        "expression": "Broadly overexpressed in solid tumors; limited normal tissue",
+        "diseases": ["Neuroblastoma", "Rhabdomyosarcoma", "Ewing sarcoma", "Osteosarcoma", "DIPG/DMG", "Prostate cancer", "NSCLC", "Ovarian cancer"],
         "approved_products": [],
-        "key_trials": ["NCT04483778", "NCT04185038"],
-        "known_resistance": ["Immunosuppressive TME"],
-        "toxicity_profile": {"CRS": "moderate"},
-        "normal_tissue": "Activated immune cells (limited)",
+        "key_trials": [
+            "NCT04483778 (B7-H3 CAR-T, Seattle Children's)",
+            "NCT04897321 (B7-H3 CAR-T + checkpoint)",
+            "NCT04670068 (B7-H3 intracranial, Stanford)",
+        ],
+        "known_resistance": [
+            "B7-H3 expression heterogeneity in CNS tumors",
+            "Immunosuppressive TME",
+            "Blood-brain barrier for CNS tumors",
+            "T-cell exhaustion in solid tumors",
+        ],
+        "toxicity_profile": {"CRS": "20-45%", "ICANS": "5-15%", "musculoskeletal_pain": "10-20%"},
+        "normal_tissue": "Limited normal tissue expression — favorable safety profile; one of the most promising pan-solid tumor CAR-T targets",
     },
     "NKG2D_ligands": {
-        "protein": "NKG2D Ligands (MICA/MICB, ULBP1-6)",
+        "protein": "NKG2D ligands (MICA, MICB, ULBP1-6, stress-induced surface molecules)",
         "uniprot_id": None,
-        "expression": "Stress-induced on tumor cells",
-        "diseases": ["AML", "Multiple Myeloma", "Various Solid Tumors"],
+        "expression": "Upregulated on stressed/transformed cells; minimal on healthy tissue",
+        "diseases": ["AML", "Multiple myeloma", "Ovarian cancer", "Colorectal cancer", "Hepatocellular carcinoma"],
         "approved_products": [],
-        "key_trials": ["NCT03018405"],
-        "known_resistance": ["Ligand shedding", "variable expression"],
-        "toxicity_profile": {"CRS": "moderate"},
-        "normal_tissue": "Stress-induced (potential for autoimmunity)",
+        "key_trials": [
+            "NCT03018405 (NKG2D CAR-T, Celyad)",
+            "NCT04167696 (CYAD-101, allogeneic NKG2D)",
+            "NCT03370198 (NKG2D CAR-T, AML)",
+        ],
+        "known_resistance": [
+            "NKG2D ligand shedding (soluble MICA/MICB)",
+            "TGF-beta downregulation of NKG2D",
+            "Metalloprotease cleavage of ligands",
+            "Immune checkpoint upregulation",
+        ],
+        "toxicity_profile": {"CRS": "15-40%", "autoimmune_risk": "theoretical (stress ligand on normal cells)", "ICANS": "5-10%"},
+        "normal_tissue": "Stress ligands theoretically on any stressed normal cell — autoimmune risk is theoretical but not observed clinically at therapeutic doses",
     },
     "CD7": {
         "protein": "T-cell antigen CD7",
@@ -309,15 +391,22 @@ CART_TARGETS: Dict[str, Dict[str, Any]] = {
         "normal_tissue": "Normal T-cells",
     },
     "FcRH5": {
-        "protein": "Fc Receptor-Like 5 (FCRLA)",
+        "protein": "FcRH5 (Fc receptor-homolog 5, FCRLA)",
         "uniprot_id": "Q96RD9",
-        "expression": "Plasma cells, B-cell subsets",
-        "diseases": ["Multiple Myeloma"],
+        "expression": "B cells, plasma cells, myeloma cells; broader B-cell lineage than BCMA",
+        "diseases": ["Multiple myeloma", "B-cell lymphomas"],
         "approved_products": [],
-        "key_trials": ["MCARH109 Phase 1 (MSK)", "MCARH145 Phase 1"],
-        "known_resistance": ["FcRH5 downregulation", "BCMA co-targeting escape"],
-        "toxicity_profile": {"crs_any": "72%", "crs_grade3": "4%", "icans_any": "6%"},
-        "normal_tissue": "Low-level B-cell expression; expected B-cell aplasia",
+        "key_trials": [
+            "NCT05338775 (FcRH5 CAR-T)",
+            "MCARH109 (Cevostamab, bispecific mAb)",
+        ],
+        "known_resistance": [
+            "Broader expression may reduce selectivity",
+            "B-cell aplasia expected",
+            "Potential for antigen masking",
+        ],
+        "toxicity_profile": {"CRS": "50-70%", "B_cell_aplasia": "near 100%", "ICANS": "10-25%"},
+        "normal_tissue": "Expressed on normal B cells — expect B-cell aplasia similar to CD19-targeted therapies",
     },
     "SLAMF7": {
         "protein": "SLAM Family Member 7 (CS1/CD319)",
@@ -342,15 +431,23 @@ CART_TARGETS: Dict[str, Dict[str, Any]] = {
         "normal_tissue": "Activated lymphocytes — controlled by limited expression kinetics",
     },
     "TROP2": {
-        "protein": "Trophoblast Cell-Surface Antigen 2 (TACSTD2)",
+        "protein": "TROP2 (Trophoblast cell surface antigen 2, TACSTD2)",
         "uniprot_id": "P09758",
-        "expression": "Epithelial cells, overexpressed in carcinomas",
-        "diseases": ["Triple-Negative Breast Cancer", "NSCLC", "Urothelial Carcinoma", "Gastric Cancer"],
-        "approved_products": [],
-        "key_trials": ["TROP2-CAR-T Phase 1 (solid tumors)", "Sacituzumab govitecan ADC (approved, validates target)"],
-        "known_resistance": ["Antigen heterogeneity", "Solid tumor microenvironment", "Poor T-cell infiltration"],
-        "toxicity_profile": {"on_target_off_tumor": "Epithelial toxicity risk", "crs_any": "30-50%"},
-        "normal_tissue": "Normal epithelial tissues — skin, GI mucosa, lung epithelium",
+        "expression": "Epithelial cancers broadly (breast, NSCLC, urothelial, HNSCC); low-level normal epithelium",
+        "diseases": ["Triple-negative breast cancer", "NSCLC (non-squamous)", "Urothelial carcinoma", "HNSCC", "Endometrial cancer"],
+        "approved_products": ["Sacituzumab govitecan (ADC, not CAR-T)"],
+        "key_trials": [
+            "NCT05451849 (TROP2 CAR-T)",
+            "NCT05671029 (TROP2 armored CAR-T)",
+        ],
+        "known_resistance": [
+            "TROP2 expression variability across tumor regions",
+            "Normal epithelial toxicity",
+            "Solid tumor TME barriers",
+            "Poor T-cell persistence in solid tumors",
+        ],
+        "toxicity_profile": {"CRS": "20-50%", "skin_toxicity": "15-30%", "mucosal_toxicity": "10-25%", "diarrhea": "10-20%"},
+        "normal_tissue": "Low-level normal epithelial expression — mucosal/skin toxicity expected; dose optimization critical",
     },
     "FLT3": {
         "protein": "FMS-Like Tyrosine Kinase 3 (CD135)",
@@ -364,26 +461,46 @@ CART_TARGETS: Dict[str, Dict[str, Any]] = {
         "normal_tissue": "Hematopoietic stem cells — myeloablation expected, requires HSCT rescue",
     },
     "CLL1": {
-        "protein": "C-Type Lectin Domain Family 12 Member A (CLEC12A)",
+        "protein": "CLL1 (C-type lectin-like molecule 1, CLEC12A)",
         "uniprot_id": "Q5QGZ9",
-        "expression": "Myeloid progenitors, AML blasts, leukemic stem cells",
-        "diseases": ["AML"],
+        "expression": "Leukemic stem cells, monocytes; absent from normal HSCs",
+        "diseases": ["AML", "MDS"],
         "approved_products": [],
-        "key_trials": ["CLL-1 CAR-T Phase 1 (China)", "CD33/CLL-1 dual CAR Phase 1"],
-        "known_resistance": ["CLL-1 expression heterogeneity", "Dual-target escape"],
-        "toxicity_profile": {"crs_any": "65%", "crs_grade3": "10%", "myelosuppression": "Expected"},
-        "normal_tissue": "Myeloid progenitors — prolonged cytopenias expected",
+        "key_trials": [
+            "NCT04219163 (CLL1 CAR-T, China)",
+            "NCT04789408 (CLL1/CD33 bispecific)",
+            "NCT05252572 (CLL1 CAR-T, Wuhan)",
+        ],
+        "known_resistance": [
+            "CLL1 expression heterogeneity",
+            "Monocyte/macrophage depletion",
+            "AML clonal evolution",
+        ],
+        "toxicity_profile": {"CRS": "30-60%", "myelosuppression": "20-40%", "ICANS": "5-15%"},
+        "normal_tissue": "Absent from normal HSCs — potentially safer AML target than CD33/CD123",
     },
     "CD44v6": {
-        "protein": "CD44 Variant Exon 6 (CD44v6)",
+        "protein": "CD44 variant 6 (CD44v6, adhesion molecule splice variant)",
         "uniprot_id": "P16070",
-        "expression": "AML blasts, epithelial cancers",
-        "diseases": ["AML", "Pancreatic Cancer", "Head and Neck SCC", "Gastric Cancer"],
+        "expression": "AML blasts, head/neck SCC, pancreatic cancer, colorectal cancer; normal keratinocytes and monocytes",
+        "diseases": ["AML", "Head and neck SCC", "Pancreatic cancer", "Colorectal cancer"],
         "approved_products": [],
-        "key_trials": ["CD44v6-CAR-T Phase 1/2 (San Raffaele)", "MLM-CAR44.1 Phase 1"],
-        "known_resistance": ["CD44v6 downregulation", "Alternative splicing", "TME suppression"],
-        "toxicity_profile": {"monocytopenia": "Expected", "crs_any": "40-60%", "skin_toxicity": "Possible (keratinocyte expression)"},
-        "normal_tissue": "Keratinocytes, monocytes — skin toxicity risk, monocytopenia",
+        "key_trials": [
+            "NCT04097301 (CD44v6 CAR-T, Italy)",
+            "NCT04427449 (CD44v6 CAR-T, AML/solid)",
+        ],
+        "known_resistance": [
+            "CD44v6 splice variant switching",
+            "Keratinocyte toxicity",
+            "Monocyte depletion",
+        ],
+        "toxicity_profile": {
+            "CRS": "30-60%",
+            "skin_toxicity": "30-50% (keratinocyte expression)",
+            "monocytopenia": "expected",
+            "ICANS": "10-20%",
+        },
+        "normal_tissue": "Keratinocyte and monocyte expression — skin toxicity and monocyte depletion expected; dose-finding critical",
     },
     "EpCAM": {
         "protein": "Epithelial Cell Adhesion Molecule (CD326/TACSTD1)",
@@ -395,6 +512,23 @@ CART_TARGETS: Dict[str, Dict[str, Any]] = {
         "known_resistance": ["Epithelial-mesenchymal transition", "Antigen heterogeneity", "Solid tumor barriers"],
         "toxicity_profile": {"on_target_off_tumor": "GI epithelial toxicity risk", "crs_any": "30-50%"},
         "normal_tissue": "Normal GI, hepatic, pancreatic epithelia — significant on-target/off-tumor risk",
+    },
+    "LNGFR": {
+        "protein": "LNGFR (Low-affinity nerve growth factor receptor, CD271, p75NTR)",
+        "expression": "Cancer stem cells in melanoma, glioma, squamous cancers; normal neural crest derivatives",
+        "diseases": ["Melanoma (cancer stem cells)", "Glioblastoma", "Squamous cell carcinoma", "HNSCC"],
+        "approved_products": [],
+        "key_trials": [
+            "Preclinical stage — no active CAR-T trials",
+            "Multiple academic preclinical programs",
+        ],
+        "known_resistance": [
+            "Cancer stem cell plasticity",
+            "Low surface density",
+            "Neural crest normal tissue toxicity risk",
+        ],
+        "toxicity_profile": {"neurotoxicity": "theoretical (neural crest expression)", "CRS": "estimated 20-40%"},
+        "normal_tissue": "Expressed on neural crest-derived cells — neurotoxicity risk; preclinical only",
     },
 }
 
@@ -715,6 +849,153 @@ CART_TOXICITIES: Dict[str, Dict[str, Any]] = {
             "Prior DNA-damaging agents", "Baseline clonal hematopoiesis",
         ],
     },
+    "IMMUNE_RECONSTITUTION": {
+        "full_name": "Immune Reconstitution — Long-term Immune Recovery",
+        "mechanism": (
+            "Prolonged B-cell aplasia and hypogammaglobulinemia following CAR-T therapy, "
+            "with delayed recovery of humoral and cellular immunity"
+        ),
+        "grades": {
+            "normal": "Full immune reconstitution by 12 months",
+            "delayed": "Persistent hypogammaglobulinemia >12 months",
+            "severe": "Recurrent opportunistic infections requiring prophylaxis >24 months",
+        },
+        "incidence": "Delayed reconstitution in 30-50% at 12 months; 10-20% requiring IVIG >24 months",
+        "management": [
+            "Monthly IVIG (trough >400 mg/dL)",
+            "Antimicrobial prophylaxis (acyclovir, fluconazole, TMP-SMX)",
+            "Vaccination schedule (inactivated only, start at 6-12 months post CAR-T)",
+            "Serial immunoglobulin level monitoring",
+        ],
+        "biomarkers": ["IgG levels", "CD4 count", "CD19+ B-cell recovery", "Vaccine titers"],
+        "risk_factors": [
+            "Prior lines of therapy (>3)",
+            "CD19 CAR-T (vs BCMA)",
+            "Flu/Cy conditioning intensity",
+            "Age >60",
+        ],
+    },
+    "PROLONGED_CYTOPENIAS": {
+        "full_name": "Prolonged Cytopenias — Beyond 30 Days",
+        "mechanism": (
+            "Persistent bone marrow suppression beyond expected lymphodepletion recovery, "
+            "driven by inflammatory marrow damage, stromal injury, and impaired hematopoietic recovery"
+        ),
+        "grades": {
+            "grade1": "ANC 1000-1500 or platelets 50-75K at day 30",
+            "grade2": "ANC 500-1000 or platelets 25-50K at day 30",
+            "grade3": "ANC <500 or platelets <25K persisting >30 days",
+            "grade4": "Transfusion-dependent or ANC <100 >60 days",
+        },
+        "incidence": "Any grade: 30-60%; Grade 3+: 15-30% at day 30; Persistent >90 days: 5-15%",
+        "management": [
+            "G-CSF (if ANC <500 after day 14)",
+            "Thrombopoietin receptor agonists (eltrombopag, romiplostim)",
+            "Platelet and RBC transfusion support",
+            "Bone marrow biopsy if persistent >90 days",
+            "Iron studies and B12/folate supplementation",
+        ],
+        "biomarkers": ["Baseline ANC/platelets", "Ferritin (HLH screen)", "Reticulocyte count", "EPO level", "Bone marrow cellularity"],
+        "risk_factors": [
+            "High tumor burden",
+            "Prior HSCT",
+            "CRS grade >=2",
+            ">4 prior lines",
+            "Baseline cytopenias",
+        ],
+    },
+    "INFECTIONS": {
+        "full_name": "Infections — Post CAR-T",
+        "mechanism": (
+            "Immunocompromised state from lymphodepletion, B-cell aplasia, hypogammaglobulinemia, "
+            "and prolonged cytopenias predisposing to bacterial, viral, and fungal infections"
+        ),
+        "grades": {
+            "mild": "Localized infection, oral antibiotics",
+            "moderate": "IV antibiotics, no ICU",
+            "severe": "ICU admission, sepsis",
+            "fatal": "Treatment-related mortality from infection",
+        },
+        "incidence": "Any infection: 20-40% in first 90 days; Severe: 10-20%; Fatal: 2-5%",
+        "management": [
+            "Prophylaxis: acyclovir/valacyclovir (HSV/VZV), fluconazole (fungal), TMP-SMX (PJP)",
+            "PJP prophylaxis for 6-12 months post CAR-T",
+            "IVIG replacement if IgG <400",
+            "COVID-19 pre-exposure prophylaxis (tixagevimab/cilgavimab or equivalent)",
+            "Avoid live vaccines for 12+ months",
+        ],
+        "biomarkers": ["ANC", "IgG trough", "CD4 count", "CMV/EBV PCR monitoring", "Beta-D-glucan", "Galactomannan"],
+        "risk_factors": [
+            "Prolonged cytopenias",
+            "CRS grade >=2",
+            "High-dose corticosteroids",
+            "Prior HSCT",
+            "Hypogammaglobulinemia",
+        ],
+    },
+    "HEPATOTOXICITY": {
+        "full_name": "Hepatotoxicity — Liver Injury",
+        "mechanism": (
+            "Immune-mediated liver injury from CAR-T cell infiltration, cytokine-driven hepatocyte "
+            "damage, or on-target off-tumor toxicity with liver-antigen-directed CARs (GPC3, Claudin18.2)"
+        ),
+        "grades": {
+            "grade1": "AST/ALT 1-3x ULN",
+            "grade2": "AST/ALT 3-5x ULN",
+            "grade3": "AST/ALT 5-20x ULN",
+            "grade4": "AST/ALT >20x ULN or liver failure",
+        },
+        "incidence": "Any grade: 10-25%; Grade 3+: 3-8%; More common with GPC3/Claudin18.2-targeted therapies",
+        "management": [
+            "Hold therapy if grade 3+",
+            "N-acetylcysteine if severe",
+            "Corticosteroids if immune-mediated",
+            "Hepatology consult if grade >=3",
+            "Serial LFT monitoring (daily during CRS)",
+        ],
+        "biomarkers": ["AST/ALT", "Bilirubin", "INR", "Albumin", "Ferritin (HLH screen)"],
+        "risk_factors": [
+            "GPC3-targeted CAR-T (liver antigen)",
+            "Hepatic tumor burden",
+            "Prior hepatotoxic therapy",
+            "Viral hepatitis (HBV/HCV)",
+        ],
+    },
+    "MACROPHAGE_ACTIVATION": {
+        "full_name": "Macrophage Activation Syndrome — Distinct from CRS",
+        "mechanism": (
+            "Pathologic macrophage hyperactivation with hemophagocytosis, distinct from but overlapping "
+            "with severe CRS. Driven by IFN-gamma, IL-18, and CXCL9 from CAR-T cells activating "
+            "tissue-resident macrophages"
+        ),
+        "grades": {
+            "mild": "Ferritin 5000-10000, mild organ dysfunction",
+            "moderate": "Ferritin >10000, multi-organ involvement",
+            "severe": "Ferritin >50000, DIC, liver failure, renal failure",
+        },
+        "incidence": "Subclinical: 10-20%; Clinical MAS: 1-5%; Overlaps with severe CRS",
+        "management": [
+            "Anakinra (IL-1 blockade, preferred first-line for MAS)",
+            "Ruxolitinib (JAK1/2 inhibition)",
+            "Emapalumab (anti-IFN-gamma, for refractory)",
+            "Etoposide (refractory HLH/MAS only)",
+            "Avoid tocilizumab monotherapy (may worsen hepatic MAS)",
+        ],
+        "biomarkers": [
+            "Ferritin (>10,000 highly suggestive)",
+            "sIL-2R/sCD25",
+            "Fibrinogen (falling)",
+            "Triglycerides (rising)",
+            "NK cell function",
+            "Bone marrow hemophagocytosis",
+        ],
+        "risk_factors": [
+            "High tumor burden",
+            "CRS grade >=3",
+            "Pre-existing immune dysregulation",
+            "EBV reactivation",
+        ],
+    },
 }
 
 
@@ -1018,6 +1299,68 @@ CART_MANUFACTURING: Dict[str, Dict[str, Any]] = {
             "Batch size limitations",
         ],
         "regulatory_note": "Enables decentralized manufacturing at clinical sites. Reduced vein-to-vein time to 7-12 days. Novartis T-Charge technology.",
+    },
+    "automated_closed_system": {
+        "description": "Fully automated closed manufacturing platforms that perform all steps from T-cell enrichment through harvest in a single device",
+        "key_parameters": {
+            "platforms": "CliniMACS Prodigy (Miltenyi), Cocoon (Lonza), Sepax (Cytiva)",
+            "processing_time": "7-12 days",
+            "operator_interventions": "2-3 per run",
+            "contamination_risk": "reduced 10-fold vs open process",
+            "scalability": "1 device = 1 patient",
+        },
+        "clinical_relevance": "Enables decentralized/point-of-care manufacturing; reduces vein-to-vein time from 4-6 weeks to 7-14 days; critical for aggressive diseases where patients deteriorate during wait",
+    },
+    "t_cell_selection": {
+        "description": "Defined composition T-cell products using CD4+ and CD8+ selection to achieve optimal 1:1 ratio",
+        "key_parameters": {
+            "target_ratio": "1:1 CD4:CD8",
+            "selection_method": "CliniMACS CD4/CD8 selection or FACS sorting",
+            "yield": "60-80% recovery",
+            "purity": ">95% CD3+",
+            "products_using": "Breyanzi (lisocabtagene maraleucel)",
+        },
+        "clinical_relevance": "Defined composition reduces inter-patient variability; Breyanzi's defined ratio showed consistent expansion kinetics; enables better dose-response prediction",
+    },
+    "viral_vector_production": {
+        "description": "Large-scale production of lentiviral or retroviral vectors for CAR-T transduction",
+        "key_parameters": {
+            "cell_line": "HEK293T (transient) or stable producer lines",
+            "scale": "10L-200L bioreactors",
+            "titer": "1e7-1e9 TU/mL",
+            "lot_size": "sufficient for 50-500 patients",
+            "cost": "$50,000-$500,000 per lot",
+            "timeline": "8-12 weeks for GMP lot",
+            "testing": "RCL, sterility, endotoxin, identity, potency, adventitious agents",
+        },
+        "clinical_relevance": "Vector supply is the primary bottleneck for CAR-T manufacturing scale-up; stable producer lines reduce cost 5-10x but require 12-18 months to develop",
+    },
+    "quality_control_analytics": {
+        "description": "Comprehensive analytical testing required for CAR-T product release under GMP",
+        "key_parameters": {
+            "identity": "CAR expression by flow cytometry (% CAR+)",
+            "purity": "CD3+ %, viability by trypan blue or Nucleocounter",
+            "potency": "Cytotoxicity assay (E:T = 1:1 to 10:1) or cytokine secretion (IFN-gamma ELISPOT)",
+            "sterility": "14-day direct inoculation (USP <71>)",
+            "mycoplasma": "qPCR (result in <4 hours)",
+            "endotoxin": "LAL (<5 EU/kg)",
+            "RCL_RCR": "Replication competent lentivirus/retrovirus (qPCR + culture)",
+            "VCN": "Vector copy number by ddPCR (target 0.5-5 copies/cell)",
+            "in_process": "Cell count, viability, transduction efficiency at days 0, 3, 7, harvest",
+        },
+        "clinical_relevance": "Release testing takes 14+ days (sterility rate-limiting); rapid sterility methods (BacT/ALERT, Bactec) enable earlier release; VCN monitoring critical for insertional mutagenesis risk (FDA secondary malignancy concern)",
+    },
+    "supply_chain_logistics": {
+        "description": "End-to-end logistics from leukapheresis collection through product delivery and infusion",
+        "key_parameters": {
+            "leukapheresis_shipping": "Fresh (2-8C) within 24-48 hours or cryopreserved (-150C)",
+            "manufacturing_site": "Centralized (Novartis Morris Plains, Kite El Segundo, BMS Bothell) or decentralized",
+            "product_shipping": "Cryopreserved in vapor-phase LN2 shipper (-150C)",
+            "chain_of_identity": "Unique patient identifier, barcode tracking, chain of custody forms",
+            "thaw_to_infuse": "Within 30 minutes of thaw",
+            "scheduling_coordination": "Lymphodepletion timing, bed availability, ICU capacity, tocilizumab stock",
+        },
+        "clinical_relevance": "30-40% of patients referred for CAR-T never receive product due to disease progression, manufacturing failure, or logistic delays; supply chain optimization is as critical as CAR design",
     },
 }
 
@@ -1657,7 +2000,358 @@ ENTITY_ALIASES: Dict[str, Dict[str, str]] = {
     "D-DIMER": {"type": "biomarker", "canonical": "d_dimer"},
     "TROPONIN": {"type": "biomarker", "canonical": "troponin"},
     "ANGIOPOIETIN": {"type": "biomarker", "canonical": "ang2"},
+    # Pediatric CAR-T aliases
+    "PEDIATRIC ALL": {"type": "pediatric_cart", "canonical": "cd19_pediatric_all"},
+    "PEDIATRIC B-ALL": {"type": "pediatric_cart", "canonical": "cd19_pediatric_all"},
+    "ELIANA": {"type": "pediatric_cart", "canonical": "cd19_pediatric_all"},
+    "PEDIATRIC CD22": {"type": "pediatric_cart", "canonical": "cd22_pediatric_relapse"},
+    "PEDIATRIC NEUROBLASTOMA": {"type": "pediatric_cart", "canonical": "gd2_neuroblastoma"},
+    "PEDIATRIC HODGKIN": {"type": "pediatric_cart", "canonical": "cd30_pediatric_hodgkin"},
+    "PEDIATRIC CRS": {"type": "pediatric_cart", "canonical": "pediatric_crs_management"},
+    "PEDIATRIC ICANS": {"type": "pediatric_cart", "canonical": "pediatric_icans_management"},
 }
+
+
+# =============================================================================
+# 7. PEDIATRIC_CART — Pediatric CAR-T Knowledge Graph
+# =============================================================================
+
+PEDIATRIC_CART: Dict[str, Dict[str, Any]] = {
+    "cd19_pediatric_all": {
+        "target": "CD19",
+        "indication": "Pediatric/Young Adult Relapsed/Refractory B-ALL",
+        "age_range": "Up to 25 years",
+        "approved_product": "Tisagenlecleucel (Kymriah)",
+        "fda_approval": "August 2017 (first-ever CAR-T approval)",
+        "pivotal_trial": {
+            "name": "ELIANA (NCT02435849)",
+            "reference": "Maude et al. NEJM 2018",
+            "population": "Pediatric/young adult r/r B-ALL, ages 3-25",
+            "n_enrolled": 75,
+            "complete_remission_rate": "82% (61/75 evaluable patients)",
+            "mrd_negativity": "100% of responders achieved MRD-negative CR",
+            "12_month_efs": "50%",
+            "12_month_os": "76%",
+        },
+        "pediatric_crs": {
+            "any_grade": "77%",
+            "grade_3_4": "47%",
+            "median_onset": "Day 3 (range 1-22)",
+            "median_duration": "8 days",
+            "icu_admission": "~47% of patients",
+            "tocilizumab_use": "69% of CRS patients",
+            "vasopressor_use": "35%",
+        },
+        "pediatric_icans": {
+            "any_grade": "40%",
+            "grade_3_4": "13%",
+            "median_onset": "Day 6",
+            "seizures": "5%",
+        },
+        "manufacturing": {
+            "turnaround": "~22 days from apheresis to infusion",
+            "manufacturing_success": "~92%",
+            "bridging_chemotherapy": "Often required during manufacturing wait",
+        },
+        "special_considerations": [
+            "Lymphodepletion: fludarabine 30 mg/m²/day x3 + cyclophosphamide 500 mg/m²/day x2",
+            "B-cell aplasia requiring IVIG replacement (target IgG >400 mg/dL)",
+            "Prolonged cytopenias: 35% grade 3-4 at day 28",
+            "Infection risk: PJP prophylaxis, antifungal prophylaxis, monitor for viral reactivation",
+            "Long-term monitoring: 15-year follow-up per REMS requirement",
+            "Growth and development monitoring in pediatric patients",
+            "Fertility counseling prior to lymphodepletion (cyclophosphamide gonadotoxicity)",
+        ],
+        "description": "Tisagenlecleucel (Kymriah) was the first FDA-approved CAR-T product, "
+                       "indicated for patients up to 25 years with r/r B-ALL. The ELIANA trial "
+                       "demonstrated 82% CR rate with durable responses. Pediatric CRS is "
+                       "common (77%) and requires specialized management with weight-based "
+                       "tocilizumab dosing.",
+    },
+    "cd22_pediatric_relapse": {
+        "target": "CD22",
+        "indication": "Pediatric r/r B-ALL with CD19-Negative Relapse",
+        "age_range": "Pediatric and young adult",
+        "approved_product": None,
+        "investigational_status": "Phase I/II trials",
+        "rationale": "CD19 antigen loss occurs in 10-20% of patients post-CD19 CAR-T, "
+                     "necessitating alternative targets. CD22 is expressed on most B-ALL "
+                     "blasts and is retained in many CD19-negative relapses.",
+        "key_trial": {
+            "name": "NCT02315612 (NIH/NCI)",
+            "reference": "Fry et al. Nature Medicine 2018",
+            "population": "Pediatric/young adult r/r B-ALL (including post-CD19 CAR-T relapse)",
+            "complete_remission_rate": "73% (11/15 patients)",
+            "mrd_negativity": "82% of responders",
+            "cd22_site_density": "Response correlated with CD22 site density (>2,000 molecules/cell)",
+            "relapse_mechanism": "CD22 downregulation (diminished site density) — not complete loss",
+        },
+        "dual_targeting_approaches": [
+            "Sequential CD19 → CD22 CAR-T: treat CD19-negative relapse",
+            "Bivalent CD19/CD22 CAR-T: single construct targeting both antigens",
+            "Co-infusion: separate CD19 and CD22 CAR-T products",
+            "Loop CAR: tandem CD19-CD22 single-chain construct",
+        ],
+        "special_considerations": [
+            "CD22 surface density matters: low density → reduced efficacy",
+            "CD22 is not fully lost (unlike CD19) — downregulation rather than deletion",
+            "Dose optimization ongoing: higher doses may overcome low CD22 density",
+        ],
+        "description": "CD22 CAR-T is an emerging approach for pediatric B-ALL patients who "
+                       "relapse with CD19 antigen loss after CD19 CAR-T therapy. Fry et al. "
+                       "demonstrated 73% CR rate. Dual CD19/CD22 targeting strategies are "
+                       "being developed to prevent antigen escape.",
+    },
+    "dual_cd19_cd22": {
+        "target": "CD19/CD22 (Dual)",
+        "indication": "Pediatric r/r B-ALL — Prevention of Antigen Escape",
+        "age_range": "Pediatric and young adult",
+        "approved_product": None,
+        "investigational_status": "Multiple Phase I/II trials",
+        "approaches": {
+            "bivalent": "Single CAR construct with both CD19 and CD22 binding domains",
+            "co_administration": "Two separate CAR-T products infused together",
+            "sequential": "CD19 CAR-T followed by CD22 CAR-T at relapse",
+        },
+        "key_trials": [
+            "NCT03241940 (bivalent CD19/CD22, Stanford)",
+            "NCT03448393 (dual CD19/CD22, CHOP)",
+            "NCT03289455 (AUTO3, Autolus — sequential)",
+        ],
+        "rationale": "Dual antigen targeting reduces risk of antigen-negative relapse. "
+                     "Bivalent constructs may provide more durable responses than single-target "
+                     "approaches in pediatric ALL.",
+        "description": "Dual CD19/CD22 CAR-T targeting is designed to prevent the 10-20% antigen "
+                       "escape seen with single-target CD19 CAR-T. Multiple approaches are under "
+                       "investigation including bivalent constructs and sequential administration.",
+    },
+    "cd30_pediatric_hodgkin": {
+        "target": "CD30",
+        "indication": "Pediatric Relapsed/Refractory Hodgkin Lymphoma",
+        "age_range": "Pediatric and adolescent",
+        "approved_product": None,
+        "investigational_status": "Phase I/II trials",
+        "key_trials": [
+            "RELY-30 (NCT02690545)",
+            "NCT04268706 (CD30 CAR-T, Baylor)",
+        ],
+        "toxicity_profile": {
+            "CRS": "Moderate (typically grade 1-2)",
+            "ICANS": "Low",
+        },
+        "special_considerations": [
+            "CD30 is expressed on Reed-Sternberg cells but also on activated T-cells",
+            "Brentuximab vedotin (ADC) failures may still respond to CD30 CAR-T",
+            "Lower toxicity profile compared to CD19 CAR-T in B-ALL",
+        ],
+        "description": "CD30 CAR-T is under investigation for pediatric Hodgkin lymphoma "
+                       "patients who fail brentuximab vedotin and checkpoint inhibitors. "
+                       "Early data show manageable toxicity and promising responses.",
+    },
+    "gd2_neuroblastoma": {
+        "target": "GD2",
+        "indication": "High-Risk Neuroblastoma (Investigational CAR-T)",
+        "age_range": "Pediatric (median age 2-5 years)",
+        "approved_product": None,
+        "investigational_status": "Phase I/II trials (CAR-T); dinutuximab (anti-GD2 mAb) is FDA-approved",
+        "key_trials": [
+            "NCT03635632 (GD2 CAR-T with C7R armoring, Baylor)",
+            "NCT04196413 (C7R-GD2 armored CAR-T)",
+            "NCT05298995 (GD2 CAR-T DIPG/DMG, Stanford)",
+        ],
+        "challenges": [
+            "Solid tumor microenvironment: immunosuppressive (TGF-beta, IL-10)",
+            "GD2 expression on CNS neurons → neuropathic pain (dose-limiting)",
+            "Poor T-cell trafficking to solid tumor sites",
+            "T-cell exhaustion in hostile TME",
+        ],
+        "armoring_strategies": [
+            "C7R (constitutive IL-7 receptor): enhances persistence in solid tumors",
+            "IL-15 co-expression: improves T-cell fitness",
+            "Dominant-negative TGF-beta receptor: overcomes TME suppression",
+        ],
+        "special_considerations": [
+            "GD2 mAb (dinutuximab) is standard-of-care for high-risk neuroblastoma maintenance",
+            "CAR-T may overcome limitations of antibody therapy (penetration, persistence)",
+            "DIPG/DMG: intracavitary delivery being explored to bypass BBB",
+            "Neuropathic pain management critical in pediatric patients",
+        ],
+        "description": "GD2 CAR-T for neuroblastoma is investigational but represents a major "
+                       "pediatric solid tumor CAR-T target. Key challenges include TME suppression "
+                       "and on-target/off-tumor neuropathic pain. Armored CAR-T constructs (C7R) "
+                       "are designed to enhance persistence in the solid tumor setting.",
+    },
+}
+
+
+# =============================================================================
+# 8. PEDIATRIC CRS/ICANS MANAGEMENT — Toxicity Management for Children
+# =============================================================================
+
+PEDIATRIC_CRS_ICANS_MANAGEMENT: Dict[str, Dict[str, Any]] = {
+    "pediatric_crs_management": {
+        "topic": "Pediatric CRS Management",
+        "description": "CRS management in pediatric CAR-T patients requires weight-based "
+                       "dosing and earlier intervention thresholds compared to adults.",
+        "tocilizumab_dosing": {
+            "weight_lt_30kg": "12 mg/kg IV (higher weight-based dose for smaller children)",
+            "weight_gte_30kg": "8 mg/kg IV (standard adult dosing)",
+            "max_dose": "800 mg per dose",
+            "repeat_dosing": "May repeat every 8 hours, maximum 3 doses in 24 hours",
+            "max_total_doses": "4 doses total",
+        },
+        "intervention_thresholds": {
+            "grade_1": "Supportive care, antipyretics, monitoring",
+            "grade_2": "Tocilizumab (lower threshold than adults — treat at grade 2)",
+            "grade_3": "Tocilizumab + corticosteroids (dexamethasone 10 mg/m² or methylprednisolone 2 mg/kg)",
+            "grade_4": "Tocilizumab + high-dose corticosteroids + vasopressors + ICU",
+        },
+        "pediatric_specific": [
+            "Earlier intervention threshold: tocilizumab at grade 2 CRS (vs grade 2-3 in adults)",
+            "Children may decompensate faster than adults",
+            "Fluid resuscitation: 10-20 mL/kg isotonic fluid boluses (weight-based)",
+            "Vasopressor dosing: weight-based (mcg/kg/min)",
+            "Temperature monitoring: continuous; children may have higher baseline fevers",
+            "Parent/caregiver education on CRS recognition critical",
+        ],
+        "monitoring": [
+            "Continuous telemetry and pulse oximetry",
+            "Vital signs every 4 hours minimum (every 1-2 hours for grade ≥2)",
+            "Daily labs: ferritin, CRP, LDH, comprehensive metabolic panel, CBC",
+            "Cytokine panel (IL-6, IFN-gamma, IL-10) if available",
+            "Echocardiography for grade ≥3 CRS",
+        ],
+    },
+    "pediatric_icans_management": {
+        "topic": "Pediatric ICANS (Immune Effector Cell-Associated Neurotoxicity Syndrome) Management",
+        "description": "Neurotoxicity management in pediatric CAR-T patients includes "
+                       "seizure prophylaxis and adapted assessment tools for younger children.",
+        "assessment": {
+            "ice_score": "ICE (Immune Effector Cell-Associated Encephalopathy) score — adapted for age",
+            "pediatric_adaptation": "Cornell Assessment of Pediatric Delirium (CAPD) for age <12 years",
+            "standard_ice": "Standard ICE score for age ≥12 years",
+        },
+        "seizure_prophylaxis": {
+            "indication": "ICANS grade ≥2",
+            "drug": "Levetiracetam (Keppra)",
+            "pediatric_dose": "10-20 mg/kg/dose BID (max 1500 mg/dose)",
+            "duration": "Continue for ≥72 hours after ICANS resolution",
+            "breakthrough": "Benzodiazepines (lorazepam 0.1 mg/kg IV) for breakthrough seizures",
+        },
+        "management_by_grade": {
+            "grade_1": "Observation, seizure prophylaxis, non-sedating environment",
+            "grade_2": "Dexamethasone 0.5 mg/kg IV q6h (max 10 mg/dose) + seizure prophylaxis",
+            "grade_3": "Dexamethasone 0.5 mg/kg IV q6h + consider methylprednisolone 2 mg/kg/day",
+            "grade_4": "High-dose methylprednisolone 30 mg/kg/day (max 1g) + ICU + neurology consult",
+        },
+        "pediatric_specific": [
+            "Seizure prophylaxis with levetiracetam for all ICANS grade ≥2",
+            "Non-convulsive status epilepticus: continuous EEG monitoring if altered mental status",
+            "Papilledema check: concern for cerebral edema (rare but fatal)",
+            "MRI brain if focal deficits or grade ≥3 ICANS",
+            "Neurodevelopmental assessment at follow-up (long-term cognitive monitoring)",
+        ],
+    },
+    "pediatric_icu_monitoring": {
+        "topic": "Pediatric ICU Monitoring Post-CAR-T Infusion",
+        "description": "All pediatric patients should be monitored in a CAR-T-capable center "
+                       "with pediatric ICU access for a minimum of 14 days post-infusion.",
+        "monitoring_requirements": [
+            "All pediatric patients: minimum 14 days post-infusion monitoring",
+            "REMS-certified center with pediatric ICU capability",
+            "Tocilizumab must be available on-site (minimum 2 doses per patient weight)",
+            "Pediatric intensivist available 24/7",
+            "Pediatric neurology consultation available within 1 hour",
+        ],
+        "discharge_criteria": [
+            "No CRS ≥ grade 2 for ≥48 hours off treatment",
+            "No ICANS ≥ grade 1 for ≥24 hours",
+            "Tolerating oral medications and nutrition",
+            "Reliable caregiver education completed (CRS/ICANS recognition)",
+            "Within 1 hour of REMS-certified center for ≥4 weeks post-infusion",
+            "Driving restriction: patient/caregiver informed of 8-week restriction",
+        ],
+        "infection_prophylaxis": [
+            "PJP prophylaxis: TMP-SMX (dose: 5 mg/kg/day TMP divided BID, 3 days/week)",
+            "Antiviral: acyclovir 10 mg/kg/dose TID (HSV/VZV prophylaxis)",
+            "Antifungal: fluconazole 6 mg/kg/day (if prolonged neutropenia)",
+            "IVIG replacement: target IgG >400 mg/dL (B-cell aplasia management)",
+            "Vaccination: live vaccines contraindicated; re-immunization per post-SCT schedule",
+        ],
+    },
+}
+
+
+def get_pediatric_cart_context(topic: str) -> str:
+    """Return formatted knowledge for a pediatric CAR-T topic.
+
+    Args:
+        topic: Topic key or keyword (e.g. 'cd19_pediatric_all', 'cd22',
+               'neuroblastoma', 'pediatric crs').
+
+    Returns:
+        Formatted string with pediatric CAR-T knowledge, or empty string.
+    """
+    key = topic.lower().replace("-", "_").replace(" ", "_")
+
+    # Check PEDIATRIC_CART first
+    data = PEDIATRIC_CART.get(key)
+    if data:
+        lines = [
+            f"## Pediatric CAR-T: {data.get('target', '')} — {data.get('indication', '')}",
+            f"- Age Range: {data.get('age_range', 'N/A')}",
+            f"- Approved Product: {data.get('approved_product') or 'Investigational'}",
+        ]
+        if data.get("pivotal_trial"):
+            trial = data["pivotal_trial"]
+            lines.append(f"- Pivotal Trial: {trial.get('name', '')} ({trial.get('reference', '')})")
+            lines.append(f"  CR Rate: {trial.get('complete_remission_rate', 'N/A')}")
+        if data.get("key_trial"):
+            trial = data["key_trial"]
+            lines.append(f"- Key Trial: {trial.get('name', '')} ({trial.get('reference', '')})")
+            lines.append(f"  CR Rate: {trial.get('complete_remission_rate', 'N/A')}")
+        if data.get("pediatric_crs"):
+            crs = data["pediatric_crs"]
+            lines.append(f"- Pediatric CRS: any grade {crs.get('any_grade', '')}, "
+                         f"grade 3-4 {crs.get('grade_3_4', '')}")
+        if data.get("pediatric_icans"):
+            icans = data["pediatric_icans"]
+            lines.append(f"- Pediatric ICANS: any grade {icans.get('any_grade', '')}, "
+                         f"grade 3-4 {icans.get('grade_3_4', '')}")
+        lines.append(f"- {data.get('description', '')}")
+        return "\n".join(lines)
+
+    # Check PEDIATRIC_CRS_ICANS_MANAGEMENT
+    data = PEDIATRIC_CRS_ICANS_MANAGEMENT.get(key)
+    if not data:
+        for k, v in PEDIATRIC_CRS_ICANS_MANAGEMENT.items():
+            if key in k or key in v.get("topic", "").lower().replace(" ", "_"):
+                data = v
+                break
+    if not data:
+        # Fuzzy search in PEDIATRIC_CART
+        for k, v in PEDIATRIC_CART.items():
+            if key in k or key in v.get("target", "").lower() or key in v.get("indication", "").lower():
+                data = v
+                return get_pediatric_cart_context(k)
+
+    if data and "topic" in data:
+        lines = [f"## {data['topic']}", f"- {data['description']}"]
+        if "tocilizumab_dosing" in data:
+            toci = data["tocilizumab_dosing"]
+            lines.append("- Tocilizumab Dosing:")
+            lines.append(f"  <30 kg: {toci['weight_lt_30kg']}")
+            lines.append(f"  ≥30 kg: {toci['weight_gte_30kg']}")
+        if "seizure_prophylaxis" in data:
+            sp = data["seizure_prophylaxis"]
+            lines.append(f"- Seizure Prophylaxis: {sp['drug']} {sp['pediatric_dose']}")
+        if "pediatric_specific" in data:
+            lines.append("- Pediatric-Specific Considerations:")
+            for item in data["pediatric_specific"]:
+                lines.append(f"  * {item}")
+        return "\n".join(lines)
+
+    return ""
 
 
 def get_biomarker_context(biomarker: str) -> str:

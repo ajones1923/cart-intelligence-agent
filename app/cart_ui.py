@@ -49,6 +49,25 @@ from src.export import export_markdown, export_json, export_pdf, generate_filena
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# PAGE CONFIG (must be the first Streamlit command)
+# ═══════════════════════════════════════════════════════════════════════
+
+st.set_page_config(
+    page_title="CAR-T Intelligence | HCLS AI Factory",
+    page_icon="🧬",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+st.warning(
+    "**Clinical Decision Support Tool** — This system provides evidence-based guidance "
+    "for research and clinical decision support only. All recommendations must be verified "
+    "by a qualified healthcare professional. Not FDA-cleared. Not a substitute for professional "
+    "clinical judgment."
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # ENGINE INITIALIZATION
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -142,17 +161,6 @@ def init_agent(_engine):
 
 engine, manager = init_engine()
 agent = init_agent(engine)
-
-# ═══════════════════════════════════════════════════════════════════════
-# PAGE CONFIG
-# ═══════════════════════════════════════════════════════════════════════
-
-st.set_page_config(
-    page_title="CAR-T Intelligence | HCLS AI Factory",
-    page_icon="🧬",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 # ═══════════════════════════════════════════════════════════════════════
 # CUSTOM CSS — NVIDIA Black + Green theme
@@ -412,9 +420,12 @@ with st.sidebar:
 
     target_filter = st.selectbox(
         "Target Antigen Filter",
-        ["All Targets", "CD19", "BCMA", "CD22", "CD20", "CD30",
-         "CD33", "CD38", "CD123", "GD2", "HER2", "GPC3", "EGFR",
-         "Mesothelin", "PSMA", "ROR1"],
+        ["All Targets", "BCMA", "B7-H3", "CD5", "CD7", "CD19", "CD20",
+         "CD22", "CD30", "CD33", "CD38", "CD44v6", "CD70", "CD123",
+         "CLL1", "Claudin18.2", "DLL3", "EGFR", "EGFRvIII", "EpCAM",
+         "FcRH5", "FLT3", "GD2", "GPC3", "GPRC5D", "HER2",
+         "IL13Ra2", "LNGFR", "Mesothelin", "MUC1", "NKG2D_ligands",
+         "PSMA", "ROR1", "SLAMF7", "TROP2"],
     )
 
     stage_filter = st.selectbox(
@@ -476,7 +487,7 @@ with st.sidebar:
     st.markdown("### \U0001f3af Demo Mode")
     if st.button("Load Demo Patient", key="load_demo"):
         import sys as _sys
-        _sys.path.insert(0, "/home/adam/projects/hcls-ai-factory/lib")
+        _sys.path.insert(0, os.environ.get("HCLS_LIB_PATH", "/app/lib"))
         from hcls_common.demo_data import DEMO_CART
         st.session_state["target_antigen_filter"] = DEMO_CART["target_antigen"]
         st.session_state["demo_question"] = DEMO_CART["question"]
@@ -860,7 +871,7 @@ with tab_chat:
                     }
             # Publish cross-agent event for CAR-T analysis
             try:
-                sys.path.insert(0, "/home/adam/projects/hcls-ai-factory/lib")
+                sys.path.insert(0, os.environ.get("HCLS_LIB_PATH", "/app/lib"))
                 from hcls_common.event_bus import publish_event, EventType, PipelineStage
                 _evidence_count = 0
                 if evidence and hasattr(evidence, "hit_count"):
@@ -877,8 +888,9 @@ with tab_chat:
                         "mode": "deep_research" if deep_research else "quick_rag",
                     },
                 )
-            except Exception:
-                pass
+            except Exception as _evt_err:
+                import logging
+                logging.getLogger("cart_ui").debug("Event bus publish failed: %s", _evt_err)
 
             st.session_state.messages.append(
                 {"role": "assistant", "content": response_text, "evidence_data": evidence_data}
@@ -907,11 +919,12 @@ with tab_kg:
         # Build and display knowledge graph
         stats = kg.get_knowledge_stats()
         st.markdown(
-            f"**Knowledge Graph:** {stats.get('targets', 0)} targets, "
-            f"{stats.get('toxicities', 0)} toxicities, "
-            f"{stats.get('manufacturing', 0)} manufacturing processes, "
+            f"**Knowledge Graph:** {stats.get('target_antigens', 0)} targets, "
+            f"{stats.get('toxicity_profiles', 0)} toxicities, "
+            f"{stats.get('manufacturing_processes', 0)} manufacturing processes, "
             f"{stats.get('biomarkers', 0)} biomarkers, "
-            f"{stats.get('regulatory_products', 0)} regulatory products"
+            f"{stats.get('regulatory_products', 0)} regulatory products, "
+            f"{stats.get('immunogenicity_topics', 0)} immunogenicity topics"
         )
 
         # Try to render interactive graph with pyvis

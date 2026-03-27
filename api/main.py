@@ -22,9 +22,11 @@ Author: Adam Jones
 Date: February 2026
 """
 
+import logging
 import os
 import sys
 import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -33,6 +35,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 # =====================================================================
 # Path setup -- ensure project root is importable
@@ -43,7 +47,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # Load API key from rag-chat-pipeline .env if not already set
 if not os.environ.get("ANTHROPIC_API_KEY"):
-    _env_path = Path("/home/adam/projects/hcls-ai-factory/rag-chat-pipeline/.env")
+    _env_path = Path(os.environ.get("CART_RAG_PIPELINE_ROOT", "/app/rag-chat-pipeline")) / ".env"
     if _env_path.exists():
         for _line in _env_path.read_text().splitlines():
             if _line.startswith("ANTHROPIC_API_KEY="):
@@ -197,6 +201,42 @@ app.add_middleware(
 )
 
 
+# ── Auth middleware (optional, based on API_KEY setting) ──
+_AUTH_SKIP_PATHS = {"/health", "/healthz", "/metrics", "/docs", "/openapi.json"}
+
+
+@app.middleware("http")
+async def check_api_key(request: Request, call_next):
+    if request.url.path in _AUTH_SKIP_PATHS:
+        return await call_next(request)
+    api_key = getattr(settings, 'API_KEY', '') or ''
+    if not api_key:
+        return await call_next(request)
+    provided = request.headers.get("X-API-Key", "")
+    if provided != api_key:
+        return JSONResponse(status_code=401, content={"detail": "Invalid or missing API key"})
+    return await call_next(request)
+
+
+# ── Rate limiting middleware ──
+_rate_limit_store: dict = defaultdict(list)
+_RATE_LIMIT_MAX = 100
+_RATE_LIMIT_WINDOW = 60
+
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    if request.url.path in {"/health", "/healthz", "/metrics", "/docs", "/openapi.json"}:
+        return await call_next(request)
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    _rate_limit_store[client_ip] = [t for t in _rate_limit_store.get(client_ip, []) if now - t < _RATE_LIMIT_WINDOW]
+    if len(_rate_limit_store[client_ip]) >= _RATE_LIMIT_MAX:
+        return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded"})
+    _rate_limit_store[client_ip].append(now)
+    return await call_next(request)
+
+
 # ── Request size limit middleware ──
 @app.middleware("http")
 async def _limit_request_size(request: Request, call_next):
@@ -303,6 +343,7 @@ class KnowledgeStatsResponse(BaseModel):
     manufacturing_processes: int
     biomarkers: int
     regulatory_products: int
+    immunogenicity_topics: int
 
 
 # =====================================================================
@@ -346,7 +387,8 @@ async def health():
         )
     except Exception as e:
         _metrics["errors_total"] += 1
-        raise HTTPException(status_code=503, detail=f"Milvus unavailable: {e}")
+        logger.error(f"Milvus unavailable: {e}")
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable")
 
 
 @app.get("/collections", response_model=CollectionsResponse, tags=["status"])
@@ -369,7 +411,8 @@ async def list_collections():
         )
     except Exception as e:
         _metrics["errors_total"] += 1
-        raise HTTPException(status_code=500, detail=f"Failed to fetch collection stats: {e}")
+        logger.error(f"Failed to fetch collection stats: {e}")
+        raise HTTPException(status_code=500, detail="Internal processing error")
 
 
 @app.post("/query", response_model=QueryResponse, tags=["rag"])
@@ -426,7 +469,8 @@ async def query(request: QueryRequest):
         raise
     except Exception as e:
         _metrics["errors_total"] += 1
-        raise HTTPException(status_code=500, detail=f"Query failed: {e}")
+        logger.error(f"Query failed: {e}")
+        raise HTTPException(status_code=500, detail="Internal processing error")
 
 
 @app.post("/search", response_model=SearchResponse, tags=["rag"])
@@ -467,7 +511,8 @@ async def search(request: QueryRequest):
         raise
     except Exception as e:
         _metrics["errors_total"] += 1
-        raise HTTPException(status_code=500, detail=f"Search failed: {e}")
+        logger.error(f"Search failed: {e}")
+        raise HTTPException(status_code=500, detail="Internal processing error")
 
 
 @app.post("/find-related", response_model=FindRelatedResponse, tags=["rag"])
@@ -508,7 +553,8 @@ async def find_related(request: FindRelatedRequest):
         raise
     except Exception as e:
         _metrics["errors_total"] += 1
-        raise HTTPException(status_code=500, detail=f"Find-related failed: {e}")
+        logger.error(f"Find-related failed: {e}")
+        raise HTTPException(status_code=500, detail="Internal processing error")
 
 
 @app.get("/knowledge/stats", response_model=KnowledgeStatsResponse, tags=["knowledge"])
@@ -525,7 +571,8 @@ async def knowledge_stats():
         return KnowledgeStatsResponse(**stats)
     except Exception as e:
         _metrics["errors_total"] += 1
-        raise HTTPException(status_code=500, detail=f"Knowledge stats failed: {e}")
+        logger.error(f"Knowledge stats failed: {e}")
+        raise HTTPException(status_code=500, detail="Internal processing error")
 
 
 @app.get("/metrics", response_class=PlainTextResponse, tags=["monitoring"])

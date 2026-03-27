@@ -90,7 +90,7 @@ class CARTIntelligenceAgent:
             cart_stage=kwargs.get("cart_stage"),
             include_genomic=kwargs.get("include_genomic", True),
         )
-        evidence = self.rag.retrieve(query)
+        evidence = self.rag.retrieve(query, stages=plan.relevant_stages)
 
         # Phase 3: Evaluate evidence quality
         quality = self.evaluate_evidence(evidence)
@@ -186,17 +186,55 @@ class CARTIntelligenceAgent:
             plan.search_strategy = "broad"
 
         # Decompose complex questions into sub-queries
+        target_label = plan.target_antigens[0] if plan.target_antigens else "CAR-T"
+
         if "WHY" in q_upper and "FAIL" in q_upper:
             plan.sub_questions = [
-                f"What are the resistance mechanisms for "
-                f"{plan.target_antigens[0] if plan.target_antigens else 'CAR-T'} therapy?",
+                f"What are the resistance mechanisms for {target_label} therapy?",
                 "What manufacturing issues lead to CAR-T therapy failure?",
                 "What patient factors predict poor CAR-T response?",
             ]
         elif "COMPARE" in q_upper:
             plan.sub_questions = [
                 f"What are the advantages of {plan.identified_topics[0] if plan.identified_topics else 'option A'}?",
-                f"What are the limitations of each approach?",
+                "What are the limitations of each approach?",
+            ]
+        elif "MECHANISM" in q_upper or "HOW DOES" in q_upper:
+            plan.sub_questions = [
+                f"What is the molecular mechanism of {target_label} therapy?",
+                f"What clinical evidence supports {target_label} mechanism of action?",
+                f"What resistance mechanisms exist for {target_label} therapy?",
+            ]
+        elif "PREDICT" in q_upper or "BIOMARKER" in q_upper:
+            plan.sub_questions = [
+                f"What biomarkers predict response to {target_label} therapy?",
+                "What are the validated clinical cutoffs for CAR-T biomarkers?",
+                "What is the validation status of predictive biomarkers in CAR-T?",
+            ]
+        elif "MANUFACTUR" in q_upper or "PRODUCTION" in q_upper or "CMC" in q_upper:
+            plan.sub_questions = [
+                f"What are the critical process parameters for {target_label} manufacturing?",
+                "What are common manufacturing failure modes in CAR-T production?",
+                "What are the cost drivers in CAR-T manufacturing?",
+            ]
+        elif "SAFETY" in q_upper or "TOXICITY" in q_upper or "ADVERSE" in q_upper:
+            plan.sub_questions = [
+                f"What is the incidence of adverse events with {target_label} therapy?",
+                "What are the management protocols for CAR-T toxicities?",
+                f"What are the risk factors for severe toxicity with {target_label}?",
+                "What biomarkers predict CAR-T therapy toxicity?",
+            ]
+        elif "COST" in q_upper or "ACCESS" in q_upper or "DISPARITY" in q_upper:
+            plan.sub_questions = [
+                "What is the current pricing for approved CAR-T therapies?",
+                "What are the real-world access barriers for CAR-T therapy?",
+                "What health equity disparities exist in CAR-T therapy access?",
+            ]
+        elif "REGULATORY" in q_upper or "APPROVAL" in q_upper or "FDA" in q_upper:
+            plan.sub_questions = [
+                f"What is the regulatory approval pathway for {target_label} therapies?",
+                "What regulatory precedents exist for CAR-T approvals?",
+                "What post-marketing conditions apply to approved CAR-T products?",
             ]
 
         return plan

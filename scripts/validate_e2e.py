@@ -15,7 +15,7 @@ Date: February 2026
 import sys
 import time
 
-sys.path.insert(0, "/home/adam/projects/hcls-ai-factory/ai_agent_adds/cart_intelligence_agent")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sentence_transformers import SentenceTransformer
 
