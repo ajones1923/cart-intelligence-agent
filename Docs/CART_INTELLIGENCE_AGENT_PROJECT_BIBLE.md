@@ -99,7 +99,7 @@ This agent is one node in the broader HCLS AI Factory. Cross-agent triggers incl
 | CPU | 20 ARM Neoverse V2 cores (Grace) |
 | Storage | NVMe SSD (local) |
 | Networking | 10GbE, WiFi 7, Bluetooth 5.3 |
-| Price | $3,999 |
+| Price | $4,699 |
 | Power | Desktop form factor, standard AC |
 
 ### Why DGX Spark
@@ -108,7 +108,7 @@ This agent is one node in the broader HCLS AI Factory. Cross-agent triggers incl
 - **NVLink-C2C** provides 900 GB/s bandwidth between Grace CPU and Blackwell GPU
 - **ARM64 Grace CPU** runs all Python services natively
 - **Single-box deployment** — Milvus, embeddings, LLM inference, and UI on one machine
-- **$3,999 price point** — accessible for research labs and departmental pilots
+- **$4,699 price point** — accessible for research labs and departmental pilots
 
 ---
 
@@ -940,7 +940,7 @@ Tests full pipeline: embed → search_all → knowledge graph → Claude LLM res
 | **Milvus 2.4** | Shared instance — CAR-T adds 10 owned collections alongside `genomic_evidence` |
 | **BGE-small-en-v1.5** | Same embedding model as RAG/Chat pipeline |
 | **ANTHROPIC_API_KEY** | Loaded from `rag-chat-pipeline/.env` if not set |
-| **DGX Spark** | All services on single GB10 hardware ($3,999) |
+| **DGX Spark** | All services on single GB10 hardware ($4,699) |
 
 ### Architectural Insight
 
